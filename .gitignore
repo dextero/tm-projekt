@@ -1,1 +1,4 @@
-tcp
+bin/
+obj/
+*.swp
+*~
