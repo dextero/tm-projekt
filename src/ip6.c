@@ -5,20 +5,36 @@
 
 #include "utils.h"
 #include "tcp.h"
+#include "eth.h"
 
-uint32_t ip6GetVersion(const ip6PacketHeader *header) {
+#define HEADER_TYPE_TCP 6
+
+#pragma pack(1)
+typedef uint16_t ip6Address[8];
+
+typedef struct ip6PacketHeader {
+    uint32_t versionTrafficClassFlowLabel;
+    uint16_t dataLength;
+    uint8_t nextHeaderType;
+    uint8_t hopLimit;
+    ip6Address source;
+    ip6Address destination;
+} ip6PacketHeader;
+#pragma pack()
+
+static uint32_t ip6GetVersion(const ip6PacketHeader *header) {
     return (header->versionTrafficClassFlowLabel >> 28) & 0xF;
 }
 
-uint32_t ip6GetTrafficClass(const ip6PacketHeader *header) {
+static uint32_t ip6GetTrafficClass(const ip6PacketHeader *header) {
     return (header->versionTrafficClassFlowLabel >> 20) & 0xFF;
 }
 
-uint32_t ip6GetFlowLabel(const ip6PacketHeader *header) {
+static uint32_t ip6GetFlowLabel(const ip6PacketHeader *header) {
     return header->versionTrafficClassFlowLabel & 0xFFFFF;
 }
 
-void ip6DebugPrintAddress6(const char *label, const ip6Address addr) {
+static void ip6DebugPrintAddress6(const char *label, const ip6Address addr) {
     size_t i;
     enum {
         NOT_ENCOUNTERED_YET,
@@ -52,7 +68,7 @@ void ip6DebugPrintAddress6(const char *label, const ip6Address addr) {
     logInfo("]");
 }
 
-void ip6DebugPrint(const ip6PacketHeader *header) {
+static void ip6DebugPrint(const ip6PacketHeader *header) {
 #define FORMAT "%-6u (%x)"
     logInfo(
         "[IPv6 HEADER]\n"
@@ -62,76 +78,50 @@ void ip6DebugPrint(const ip6PacketHeader *header) {
         "  data length: " FORMAT "\n"
         "  next header: " FORMAT "\n"
         "    hop limit: " FORMAT,
-        ip6GetVersion(header),       ip6GetVersion(header),
-        ip6GetTrafficClass(header),  ip6GetTrafficClass(header),
-        ip6GetFlowLabel(header),     ip6GetFlowLabel(header),
-        (uint32_t)header->dataLength, (uint32_t)header->dataLength,
-        (uint32_t)header->nextHeader, (uint32_t)header->nextHeader,
-        (uint32_t)header->hopLimit,   (uint32_t)header->hopLimit);
+        ip6GetVersion(header),            ip6GetVersion(header),
+        ip6GetTrafficClass(header),       ip6GetTrafficClass(header),
+        ip6GetFlowLabel(header),          ip6GetFlowLabel(header),
+        (uint32_t)header->dataLength,     (uint32_t)header->dataLength,
+        (uint32_t)header->nextHeaderType, (uint32_t)header->nextHeaderType,
+        (uint32_t)header->hopLimit,       (uint32_t)header->hopLimit);
     ip6DebugPrintAddress6("       source: ", header->source);
     ip6DebugPrintAddress6("  destination: ", header->destination);
 #undef FORMAT
 }
 
-void ip6ToHostByteOrder(ip6PacketBuffer *packet) {
-    ip6PacketHeader *header = (ip6PacketHeader*)packet->data;
+static void ip6ToHostByteOrder(ip6PacketHeader *header) {
     size_t i;
 
     header->dataLength = ntohs(header->dataLength);
-    for (i = 0; i < ARRAY_SIZE(header->source); ++i)
+    for (i = 0; i < ARRAY_SIZE(header->source); ++i) {
         header->source[i] = ntohs(header->source[i]);
-    for (i = 0; i < ARRAY_SIZE(header->destination); ++i)
+    }
+    for (i = 0; i < ARRAY_SIZE(header->destination); ++i) {
         header->destination[i] = ntohs(header->destination[i]);
+    }
 
     ip6DebugPrint(header);
 }
 
-void ip6PacketInit(ip6PacketBuffer *packet, const ip6PacketHeader *header) {
-    packet->size = sizeof(ip6PacketHeader) + ntohs(header->dataLength);
-    packet->bytesWritten = 0;
+int ip6Recv(void **outData, size_t *outSize) {
+    ip6PacketHeader header;
 
-    logInfo("allocating %lu (%lx) bytes", packet->size, packet->size);
-    packet->data = (uint8_t*)malloc(packet->size);
-}
+    while (true) {
+        /* odbierz kolejny pakiet */
+        ethRecv(&header, sizeof(header));
+        ip6ToHostByteOrder(&header);
 
-void ip6PacketComplete(ip6PacketBuffer *packet) {
-    ip6ToHostByteOrder(packet);
+        if (header.nextHeaderType == HEADER_TYPE_TCP) {
+            *outData = malloc(header.dataLength);
+            *outSize = header.dataLength;
+            ethRecv(*outData, header.dataLength);
 
-    if (tcpRecv(packet->data + sizeof(ip6PacketHeader),
-                packet->size - sizeof(ip6PacketHeader))) {
-        logInfo("tcpRecv failed");
-    }
-
-    free(packet->data);
-    packet->size = 0;
-    packet->bytesWritten = 0;
-    packet->data = NULL;
-}
-
-static ip6PacketBuffer nextPacket = { 0, 0, NULL };
-
-int ip6Recv(const void *buffer, size_t size) {
-    size_t bytesToCopy;
-
-    while (size > 0) {
-        if (nextPacket.size == 0) {
-            logInfo("new IPv6 packet");
-
-            if (size < offsetof(ip6PacketHeader, dataLength) + sizeof(uint16_t))
-                return -1;
-
-            ip6PacketInit(&nextPacket, (const ip6PacketHeader*)buffer);
+            return 0;
+        } else {
+            ethSkip(header.dataLength);
+            logInfo("skipping non-TCP packet (type = %u)",
+                    (unsigned)header.nextHeaderType);
         }
-
-        bytesToCopy = MIN(nextPacket.size - nextPacket.bytesWritten, size);
-        memcpy(nextPacket.data + nextPacket.bytesWritten, buffer, bytesToCopy);
-        nextPacket.bytesWritten += bytesToCopy;
-
-        if (nextPacket.bytesWritten == nextPacket.size) {
-            ip6PacketComplete(&nextPacket);
-        }
-
-        size -= bytesToCopy;
     }
 
     return 0;
