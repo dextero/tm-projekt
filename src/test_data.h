@@ -10,7 +10,7 @@
     "\x00\x50"          /* port docelowy = 80 (HTTP) */ \
     "\xcd\x0b\xcf\x24"  /* numer sekwencyjny         */ \
     "\xba\x8f\xba\xff"  /* numer potwierdzenia       */ \
-    "\x80\x10"          /* dlugosc naglowka (4b)
+    "\x80\x02"          /* dlugosc naglowka (4b)
                            + zarezerwowane  (3b)
                            + flagi          (9b)     */ \
     "\x00\x32"          /* szerokosc okna            */ \

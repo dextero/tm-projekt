@@ -30,11 +30,6 @@ typedef struct eth_frame {
 } eth_frame;
 #pragma pack()
 
-void ethRecv(void *outBuffer, size_t bytes);
-void ethSkip(size_t bytes);
-
-void ethSend(const void *buffer, size_t bytes);
-
 void bind_raw_socket_to_mac(int sockfd, mac_address* mac, eth_socket* ethsock);
 void eth_send_data(eth_socket* ethsock, mac_address* dest, char* buf, int len);
 void eth_recv_data(eth_socket* ethsock, char* buf, size_t len, unsigned char* frame_type);

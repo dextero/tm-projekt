@@ -73,7 +73,10 @@ void ethSkip(size_t bytes) {
     currPos = (currPos + bytes) % dataSize;
 }
 
-void ethSend(const void *buffer, size_t bytes) {
+void ethSend(macAddress mac,
+             const void *buffer,
+             size_t bytes) {
+    (void)mac;
     (void)buffer;
     logInfo("ethSend: %lu bytes\n", bytes);
 }

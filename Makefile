@@ -7,7 +7,9 @@ INTERMEDIATE_DIR_PREPROCESSED=obj/preprocessed
 OUTPUT_DIR=bin
 
 CC=gcc
-MACROS=-D_DEBUG
+DEBUG_MACROS=-D_DEBUG
+RELEASE_MACROS=
+MACROS=
 CCFLAGS=-pedantic -Wall -Wextra $(MACROS)
 LIBDIRS=
 LIBS=
@@ -97,10 +99,10 @@ clean:
 
 # wypisywanie polecenia kompilacji
 print_compile_cmd:
-	@echo "$(CC) $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(INCLUDES) -c -o OUTPUT INPUT"
+	@echo "$(CC) $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(RELEASE_MACROS) $(INCLUDES) -c -o OUTPUT INPUT"
 
 print_compile_cmd_debug:
-	@echo "$(CC) -ggdb $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(INCLUDES) -c -o OUTPUT INPUT"
+	@echo "$(CC) -ggdb $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(DEBUG_MACROS) $(INCLUDES) -c -o OUTPUT INPUT"
 
 print_compile_cmd_preprocess:
 	@echo "$(CC) -E $(CCFLAGS) $(INCLUDES) -o OUTPUT INPUT"
@@ -112,11 +114,11 @@ print_compile_cmd_preprocess:
 # chain rule do kompilowania .c do .o
 $(INTERMEDIATE_DIR)/%.$(OBJECT_EXT): %.$(SOURCE_EXT)
 	@echo "CC  $@"
-	@$(CC) $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(INCLUDES) -c -o $@ $<
+	@$(CC) $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(RELEASE_MACROS) $(INCLUDES) -c -o $@ $<
 
 $(INTERMEDIATE_DIR_DEBUG)/%.$(OBJECT_EXT): %.$(SOURCE_EXT)
 	@echo "CC  $@"
-	@$(CC) -ggdb $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(INCLUDES) -c -o $@ $<
+	@$(CC) -ggdb $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(DEBUG_MACROS) $(INCLUDES) -c -o $@ $<
 
 # preprocesor
 $(INTERMEDIATE_DIR_PREPROCESSED)/%.$(SOURCE_EXT): %.$(SOURCE_EXT)

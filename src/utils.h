@@ -25,12 +25,7 @@ uint32_t ntohl(uint32_t bytes);
 #define htons ntohs
 #define htonl ntohl
 
-#ifdef _DEBUG
 void logInfoNoNewline(const char *format, ...);
 void logInfo(const char *format, ...);
-#else
-static void logInfoNoNewline(...) {}
-static void logInfo(...) {}
-#endif /* _DEBUG */
 
 #endif /* MIKRO_PROJEKT_UTILS_H */

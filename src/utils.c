@@ -11,7 +11,6 @@ uint32_t ntohl(uint32_t bytes) {
     return __builtin_bswap32(bytes);
 }
 
-#ifdef _DEBUG
 void logInfoNoNewline(const char *format, ...) {
     va_list list;
     va_start(list, format);
@@ -27,4 +26,3 @@ void logInfo(const char *format, ...) {
 
     printf("\n");
 }
-#endif /* _DEBUG */

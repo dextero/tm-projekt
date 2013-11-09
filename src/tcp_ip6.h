@@ -2,8 +2,18 @@
 #define MIKRO_PROJEKT_TCP_IP6_H
 
 #include <stddef.h>
+#include <stdint.h>
 
-int tcpIp6RecvLine(char **outLine, size_t *outSize);
-int tcpIp6Recv(char *buffer, size_t bufferSize);
+typedef uint16_t ip6Address[8];
+typedef struct tcpIp6Socket tcpIp6Socket;
+
+tcpIp6Socket *tcpIp6Accept(uint16_t port);
+
+int tcpIp6RecvLine(tcpIp6Socket *sock,
+                   char **outLine,
+                   size_t *outSize);
+int tcpIp6Recv(tcpIp6Socket *sockt,
+               void *buffer,
+               size_t bufferSize);
 
 #endif /* MIKRO_PROJEKT_TCP_IP6_H */
