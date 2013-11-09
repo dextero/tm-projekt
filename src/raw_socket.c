@@ -10,21 +10,12 @@
 
 #include "raw_socket.h"
 
-int open_raw_socket(char* if_name) {
-	int sockfd = __create_raw_socket();
-	if(sockfd < 0)
-		return sockfd;
-	struct ifreq ifr;
-	__set_ifr_name(&ifr, if_name);
-	int retrievement_result = __retrieve_if_index(sockfd, &ifr);
-	if(retrievement_result < 0)
-		return retrievement_result;
-	int binding_result = __bind_raw_socket(sockfd, &ifr);
-	if(binding_result < 0)
-		return binding_result;
-	__set_socket_options(sockfd, &ifr);
-	return sockfd;
-}
+static int __create_raw_socket();
+static void __set_ifr_name(struct ifreq* ifr, char* if_name);
+static int __retrieve_if_index(int sockfd, struct ifreq* pifr);
+static int __bind_raw_socket(int sockfd, struct ifreq* pifr);
+static void __fill_sockaddr_ll(struct sockaddr_ll* psll, struct ifreq* pifr);
+static int __set_socket_options(int sockfd, struct ifreq* pifr);
 
 static int __create_raw_socket() {
 	int retval = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
@@ -32,11 +23,11 @@ static int __create_raw_socket() {
 }
 
 static void __set_ifr_name(struct ifreq* ifr, char* if_name) {
-	strncpy((char*) ifr.ifr_name, if_name, IFNAMSIZ);
+	strncpy((char*) ifr->ifr_name, if_name, IFNAMSIZ);
 }
 
 static int __retrieve_if_index(int sockfd, struct ifreq* pifr) {
-	int retval = ioctl(sockfd, SIOCGIFINDEX, &ifr);
+	int retval = ioctl(sockfd, SIOCGIFINDEX, pifr);
 	return retval;
 }
 
@@ -61,3 +52,21 @@ static int __set_socket_options(int sockfd, struct ifreq* pifr) {
 	int retval = setsockopt(sockfd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mr, sizeof(mr));
 	return retval;
 }
+
+int open_raw_socket(char* if_name) {
+	int sockfd = __create_raw_socket();
+	if(sockfd < 0)
+		return sockfd;
+	struct ifreq ifr;
+	__set_ifr_name(&ifr, if_name);
+	int retrievement_result = __retrieve_if_index(sockfd, &ifr);
+	if(retrievement_result < 0)
+		return retrievement_result;
+	int binding_result = __bind_raw_socket(sockfd, &ifr);
+	if(binding_result < 0)
+		return binding_result;
+	__set_socket_options(sockfd, &ifr);
+	return sockfd;
+}
+
+
