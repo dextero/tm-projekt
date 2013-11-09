@@ -396,6 +396,20 @@ tcpIp6Socket *tcpIp6Accept(uint16_t port) {
     return sock;
 }
 
+void tcpIp6Close(tcpIp6Socket *sock) {
+    tcpIp6Socket **curr;
+
+    LIST_FOREACH_PTR(curr, &allTcpSockets) {
+        if (*curr == sock) {
+            LIST_CLEAR(&sock->packets) {
+                free(*sock->packets);
+            }
+            LIST_ERASE(curr);
+            return;
+        }
+    }
+}
+
 int tcpIp6Recv(tcpIp6Socket *sock,
                void *buffer,
                size_t bufferSize) {

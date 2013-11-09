@@ -23,5 +23,6 @@ int main() {
         line = NULL;
     }
 
+    tcpIp6Close(socket);
     return 0;
 }

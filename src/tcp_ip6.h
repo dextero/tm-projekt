@@ -8,11 +8,12 @@ typedef uint16_t ip6Address[8];
 typedef struct tcpIp6Socket tcpIp6Socket;
 
 tcpIp6Socket *tcpIp6Accept(uint16_t port);
+void tcpIp6Close(tcpIp6Socket *sock);
 
 int tcpIp6RecvLine(tcpIp6Socket *sock,
                    char **outLine,
                    size_t *outSize);
-int tcpIp6Recv(tcpIp6Socket *sockt,
+int tcpIp6Recv(tcpIp6Socket *sock,
                void *buffer,
                size_t bufferSize);
 
