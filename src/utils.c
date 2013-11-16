@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-
+/*
 uint16_t ntohs(uint16_t bytes) {
     return __builtin_bswap16(bytes);
 }
@@ -10,6 +10,7 @@ uint16_t ntohs(uint16_t bytes) {
 uint32_t ntohl(uint32_t bytes) {
     return __builtin_bswap32(bytes);
 }
+*/
 
 #ifdef _DEBUG
 void logInfoNoNewline(const char *format, ...) {
