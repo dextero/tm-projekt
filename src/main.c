@@ -5,7 +5,7 @@
 
 #include <unistd.h>
 
-#include "eth.h"
+#include "eth_new.h"
 #include "raw_socket.h"
 
 unsigned char mac_array[6] = { '\xe8', '\x11', '\x32', '\x94', '\x11', '\x7b' };
@@ -18,9 +18,9 @@ int main(int argc, const char** argv) {
 	eth_socket ethsock;
 	sockfd = open_raw_socket(argv[1]);
 	/* memcpy((void*) mac.bytes, (void*) mac_array, 6); */
-	bind_raw_socket_to_mac(sockfd, mac_array, &ethsock);
+	bind_fd_to_mac(sockfd, mac_array, &ethsock);
 	while(666) {
-		eth_send_data(&ethsock, (mac_address*) broadcast, lolframe, sizeof(lolframe));
+		eth_send(&ethsock, (mac_address*) broadcast, ETHERTYPE_IPV6, lolframe, sizeof(lolframe));
 		sleep(1);
 	}
 	return 0;
