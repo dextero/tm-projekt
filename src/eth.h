@@ -20,7 +20,7 @@ typedef struct eth_frame {
 	mac_address dest_addr;
 	mac_address src_addr;
 	uint16_t ethertype;
-	/* 4 bytes excluded from payload
+	/* first 4 bytes excluded from payload
 	if the frame is tagged with a 802.1Q tag. */
 	uint8_t payload[ETH_MAX_DATA_LEN + 4 + 4];
 	uint32_t crc;
