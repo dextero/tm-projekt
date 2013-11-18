@@ -17,10 +17,17 @@ static uint32_t compute_crc(eth_frame* frame) {
 	size_t len;
 	uint16_t datalen;
 	buf = (char*) frame;
-	datalen = ntohs(frame->ethertype);
-	if(datalen < 46)
-		datalen = 46;
-	len = 2 * sizeof(mac_address) + sizeof(uint16_t) + ntohs(frame->ethertype);
+	if(frame->is_tagged) {
+		datalen = ntohs(*((char*) &(frame->ethertype) + 4));
+		if(datalen < 42)
+			datalen = 42;
+	}
+	else {
+		datalen = ntohs(frame->ethertype);
+		if(datalen < 46)
+			datalen = 46;
+	}
+	len = 2 * sizeof(mac_address) + sizeof(uint16_t) + datalen;
 	if(frame->is_tagged)
 		len += 4;
 	checksum = crc32buf(buf, len);
@@ -40,6 +47,8 @@ eth_send_data_df(eth_socket* ethsock, mac_address* dest, char* buf, uint16_t len
 	else
 		frame.ethertype = htons(len);
 	memcpy((void*) frame.payload, (void*) buf, len);
+	if(len < 46)
+		memset((void *) (frame.payload + len), 0, 46 - len);
 	checksum = compute_crc(&frame);
 	sockfd = ethsock->raw_socket_fd;
 	if(len < 46)
