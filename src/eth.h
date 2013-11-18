@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 #define ETH_MAX_DATA_LEN 1500
+#define ETH_FRAME_DATA 1
+#define ETH_FRAME_ARP6
 
 #pragma pack(1)
 typedef struct mac_address {
@@ -35,5 +37,6 @@ void ethSend(const void *buffer, size_t bytes);
 
 void bind_raw_socket_to_mac(int sockfd, mac_address* mac, eth_socket* ethsock);
 void eth_send_data(eth_socket* ethsock, mac_address* dest, char* buf, int len);
+void eth_recv_data(eth_socket* ethsock, char* buf, size_t len, unsigned char* frame_type);
 
 #endif /* MIKRO_PROJEKT_ETH_H */

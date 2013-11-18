@@ -48,7 +48,7 @@ eth_send_data_df(eth_socket* ethsock, mac_address* dest, char* buf, uint16_t len
 		frame.ethertype = htons(len);
 	memcpy((void*) frame.payload, (void*) buf, len);
 	if(len < 46)
-		memset((void *) (frame.payload + len), 0, 46 - len);
+	memset((void *) (frame.payload + len), 0, 46 - len);
 	checksum = compute_crc(&frame);
 	sockfd = ethsock->raw_socket_fd;
 	if(len < 46)
