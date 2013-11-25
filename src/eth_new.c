@@ -4,8 +4,17 @@
 #include "eth_new.h"
 #include "crc.h"
 #include "utils.h"
+#include "raw_socket.h"
+#include "utils.h"
 
 static int is_addressed_to_me(mac_address* my_mac, mac_address* dest_mac);
+
+void eth_socket_init(eth_socket* ethsock) {
+    mac_address mac;
+    /* TODO: zmienic to "lo" */
+    int sockfd = open_raw_socket("lo", &mac);
+    bind_fd_to_mac(sockfd, &mac, ethsock);
+}
 
 void bind_fd_to_mac(int sockfd, mac_address* mac, eth_socket* ethsock) {
 	ethsock->raw_socket_fd = sockfd;
@@ -17,8 +26,10 @@ int eth_send(eth_socket* ethsock, mac_address* dest, uint16_t ethertype,
 	eth_frame frame;
 	size_t total_len;
 	uint32_t checksum;
-	if(len > ETH_MAX_PAYLOAD_LEN)
+	if(len > ETH_MAX_PAYLOAD_LEN) {
+        logInfo("eth_send: too much data");
 		return -1;
+    }
 	memcpy(&frame.dest_addr, (void*) dest, sizeof(mac_address));
 	memcpy(&frame.src_addr, &ethsock->mac, sizeof(mac_address));
 	frame.ethertype = htons(ethertype);
@@ -26,12 +37,12 @@ int eth_send(eth_socket* ethsock, mac_address* dest, uint16_t ethertype,
 	if(len < 46)
 		len = 46;
 	total_len = 2 * sizeof(mac_address) + sizeof(uint16_t) + len;
-	if(ethertype <= ETH_MAX_PAYLOAD_LEN) {
+	/*if(ethertype <= ETH_MAX_PAYLOAD_LEN) {*/
 		checksum = crc32buf((char*) &frame, total_len);
 		memcpy((void*) (frame.tail + len), &checksum,
 				sizeof(checksum));
 		total_len += sizeof(checksum);
-	}
+	/*}*/
 	return write(ethsock->raw_socket_fd, &frame, total_len);
 }
 

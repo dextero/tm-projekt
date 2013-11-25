@@ -10,9 +10,14 @@ int main() {
 
     char buffer[32] = "";
 
-    tcpIp6Socket *socket = tcpIp6Accept(80);
-    tcpIp6Recv(socket, buffer, sizeof(buffer) - 1);
+    tcpIp6Socket *socket = tcpIp6Accept(4545);
 
+    if (!socket) {
+        logInfo("tcpIp6Accept failed");
+        return -1;
+    }
+
+    tcpIp6Recv(socket, buffer, sizeof(buffer) - 1);
     logInfo("recv: read %lu chars\n%s", sizeof(buffer) - 1, buffer);
 
     for (i = 0; i < 10; ++i) {

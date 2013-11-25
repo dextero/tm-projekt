@@ -58,7 +58,15 @@ static int set_socket_options(int sockfd, struct ifreq* pifr) {
 	return retval;
 }
 
-int open_raw_socket(char* if_name) {
+static void get_interface_mac(int sockfd, const char* if_name, mac_address* out_mac) {
+    struct ifreq ifr;
+    memset(&ifr, 0x00, sizeof(ifr));
+    strcpy(ifr.ifr_name, if_name);
+    ioctl(sockfd, SIOCGIFHWADDR, &ifr);
+    memcpy(out_mac, ifr.ifr_hwaddr.sa_data, sizeof(*out_mac));
+}
+
+int open_raw_socket(char* if_name, mac_address* out_mac) {
 	int sockfd;
 	struct ifreq ifr;
 	int retrievement_result;
@@ -74,7 +82,7 @@ int open_raw_socket(char* if_name) {
 	if(binding_result < 0)
 		return binding_result;
 	set_socket_options(sockfd, &ifr);
+    get_interface_mac(sockfd, if_name, out_mac);
 	return sockfd;
 }
-
 

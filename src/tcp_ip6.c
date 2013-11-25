@@ -5,7 +5,7 @@
 #include <assert.h>
 
 #include "utils.h"
-#include "eth.h"
+#include "eth_new.h"
 #include "arp.h"
 #include "generic_list.h"
 
@@ -13,7 +13,10 @@
  * IPv6 header *
  * ----------- */
 
+#define ETHERTYPE_IPv6 0x86DD
 #define HEADER_TYPE_TCP 6
+
+#define LONG_DEBUG
 
 #pragma pack(1)
 typedef struct ip6PacketHeader {
@@ -37,6 +40,27 @@ static uint32_t ip6GetTrafficClass(const ip6PacketHeader *header) {
 
 static uint32_t ip6GetFlowLabel(const ip6PacketHeader *header) {
     return header->versionTrafficClassFlowLabel & 0xFFFFF;
+}
+
+static void ip6SetVersion(ip6PacketHeader *header,
+                          uint32_t version) {
+    header->versionTrafficClassFlowLabel =
+        (header->versionTrafficClassFlowLabel & 0x0FFFFFFF)
+        | ((version & 0xF) << 28);
+}
+
+static void ip6SetTrafficClass(ip6PacketHeader *header,
+                               uint32_t trafficClass) {
+    header->versionTrafficClassFlowLabel =
+        (header->versionTrafficClassFlowLabel & 0xF00FFFFF)
+        | ((trafficClass & 0xFF) << 20);
+}
+
+static void ip6SetFlowLabel(ip6PacketHeader *header,
+                            uint32_t flowLabel) {
+    header->versionTrafficClassFlowLabel =
+        (header->versionTrafficClassFlowLabel & 0xFFF00000)
+        | (flowLabel & 0xFFFFF);
 }
 
 static void ip6DebugPrintAddress6(const char *label, const ip6Address addr) {
@@ -70,10 +94,15 @@ static void ip6DebugPrintAddress6(const char *label, const ip6Address addr) {
             logInfoNoNewline(":");
         logInfoNoNewline("%hx", addr[i]);
     }
-    logInfo("]");
+    logInfoNoNewline("]");
 }
 
 static void ip6DebugPrint(const ip6PacketHeader *header) {
+#ifndef LONG_DEBUG
+    ip6DebugPrintAddress6("from ", header->source);
+    ip6DebugPrintAddress6(" to ", header->destination);
+    logInfo("");
+#else
 #define FORMAT "%-6u (%x)"
     logInfo(
         "[IPv6 HEADER]\n"
@@ -90,8 +119,11 @@ static void ip6DebugPrint(const ip6PacketHeader *header) {
         (uint32_t)header->nextHeaderType, (uint32_t)header->nextHeaderType,
         (uint32_t)header->hopLimit,       (uint32_t)header->hopLimit);
     ip6DebugPrintAddress6("       source: ", header->source);
+    logInfo("");
     ip6DebugPrintAddress6("  destination: ", header->destination);
+    logInfo("");
 #undef FORMAT
+#endif /* LONG_DEBUG */
 }
 #else
 #   define ip6DebugPrintAddress6 (void)
@@ -101,6 +133,8 @@ static void ip6DebugPrint(const ip6PacketHeader *header) {
 static void ip6ToHostByteOrder(ip6PacketHeader *header) {
     size_t i;
 
+    header->versionTrafficClassFlowLabel =
+            ntohl(header->versionTrafficClassFlowLabel);
     header->dataLength = ntohs(header->dataLength);
     for (i = 0; i < ARRAY_SIZE(header->source); ++i) {
         header->source[i] = ntohs(header->source[i]);
@@ -109,7 +143,11 @@ static void ip6ToHostByteOrder(ip6PacketHeader *header) {
         header->destination[i] = ntohs(header->destination[i]);
     }
 
-    ip6DebugPrint(header);
+    /*ip6DebugPrint(header);*/
+}
+
+static void ip6ToNetworkByteOrder(ip6PacketHeader *header) {
+    ip6ToHostByteOrder(header);
 }
 
 /* ---------- *
@@ -149,15 +187,36 @@ typedef struct tcpPacketHeader {
 #pragma pack()
 
 uint32_t tcpGetDataOffset(const tcpPacketHeader *header) {
-    return (uint32_t)(((header->base.flags) & 0xf000) >> 12) * sizeof(uint32_t);
+    return (uint32_t)(((header->base.flags) & 0xF000) >> 12) * sizeof(uint32_t);
 }
 
 bool tcpGetFlag(const tcpPacketHeader *header, tcpFlags flag) {
     return !!(header->base.flags & flag);
 }
 
+void tcpSetDataOffset(tcpPacketHeader *header,
+                      uint32_t dataOffset) {
+    assert(dataOffset % sizeof(uint32_t) == 0);
+    header->base.flags = (header->base.flags & 0x0FFF)
+            | (((dataOffset / sizeof(uint32_t)) & 0xF) << 12);
+}
+
+void tcpSetFlags(tcpPacketHeader *header,
+                 uint32_t flags) {
+    header->base.flags = (header->base.flags & 0xF000)
+            | (flags & 0x0FFF);
+}
+
 #ifdef _DEBUG
 static void tcpDebugPrint(const tcpPacketHeader *header) {
+#ifndef LONG_DEBUG
+    logInfo("port %u to %u,%s%s%s",
+            (unsigned)header->base.sourcePort,
+            (unsigned)header->base.destinationPort,
+            (tcpGetFlag(header, TCP_FLAG_SYN) ? " SYN" : ""),
+            (tcpGetFlag(header, TCP_FLAG_ACK) ? " ACK" : ""),
+            (tcpGetFlag(header, TCP_FLAG_RST) ? " RST" : ""));
+#else
 #define FORMAT "%-12u (0x%x)"
     logInfo(
         "[TCP HEADER]\n"
@@ -198,6 +257,7 @@ static void tcpDebugPrint(const tcpPacketHeader *header) {
         (unsigned int)header->base.checksum,        (unsigned int)header->base.checksum,
         (unsigned int)header->base.urgentPointer,   (unsigned int)header->base.urgentPointer);
 #undef FORMAT
+#endif /* LONG_DEBUG */
 }
 #else
 #   define tcpDebugPrint (void)
@@ -214,62 +274,10 @@ static void tcpToHostByteOrder(tcpPacketHeader *header) {
     header->base.urgentPointer   = ntohs(header->base.urgentPointer);
 }
 
-/* --------------- *
- * recv* functions *
- * --------------- */
-
-int ip6RecvNextPacket(void **outPacket) {
-    ip6PacketHeader header;
-    tcpPacketHeader *tcpHeader;
-
-    *outPacket = NULL;
-
-    while (true) {
-        /* odbierz kolejny pakiet */
-        ethRecv(&header, sizeof(header));
-        ip6ToHostByteOrder(&header);
-
-        if (header.nextHeaderType == HEADER_TYPE_TCP) {
-            *outPacket = malloc(sizeof(header) + header.dataLength);
-            memcpy(*outPacket, &header, sizeof(header));
-            ethRecv((char*)*outPacket + sizeof(header), header.dataLength);
-
-            tcpHeader = (tcpPacketHeader*)((char*)*outPacket + sizeof(header));
-            tcpToHostByteOrder(tcpHeader);
-            tcpDebugPrint(tcpHeader);
-
-            return 0;
-        } else {
-            ethSkip(header.dataLength);
-            logInfo("skipping non-TCP packet (type = %u)",
-                    (unsigned)header.nextHeaderType);
-        }
-    }
-
-    return 0;
+static void tcpToNetworkByteOrder(tcpPacketHeader *header) {
+    tcpToHostByteOrder(header);
 }
 
-/*
-int tcpIp6Send(ip6Address dstIp,
-               uint16_t dstPort,
-               void *buffer,
-               size_t bufferSize) {
-    macAddress dstMac;
-    tcpPacketHeader tcpHeader;
-    ip6PacketHeader ip6Header;
-
-    if (arpQuery(dstIp, &dstMac))
-
-    tcpHeader.base.sourcePort = 80;
-    tcpHeader.base.destinationPort = dstPort;
-    tcpHeader.base.sequenceNumber = random();
-    tcpHeader.base.ackNumber = 0;
-    tcpHeader.base.flags = TCP_FLAG_SYN;
-    tcpHeader.base.windowWidth;
-    tcpHeader.base.checksum;
-    tcpHeader.base.urgentPointer;
-    TODO
-}*/
 
 typedef enum tcpSocketState {
     SOCK_STATE_CLOSED,
@@ -299,23 +307,66 @@ bool ip6AddressEqual(const ip6Address first,
 }
 
 struct tcpIp6Socket {
+    eth_socket ethSocket;
     tcpSocketState state;
+    ip6Address localAddress;
     ip6Address remoteAddress;
     uint16_t remotePort;
     uint16_t localPort;
     uint32_t sequenceNumber;
     uint32_t currPacketDataAlreadyRead;
-    LIST(void*) packets;
+    uint32_t lastReceivedSeqNumber;
+    uint32_t lastReceivedAckNumber;
+    LIST(void*) receivedPackets;
+    LIST(void*) unacknowledgedPackets; /* sent but not ACKed */
 };
 
 LIST(tcpIp6Socket) allTcpSockets = NULL;
 
-void tcpAddPacketToList(LIST(void*) *packets,
-                        void *packet) {
+static int ip6RecvNextPacket(tcpIp6Socket *sock, void **outPacket) {
+    tcpPacketHeader *tcpHeader;
+    ip6PacketHeader *header;
+    *outPacket = malloc(ETH_MAX_PAYLOAD_LEN);
+    header = (ip6PacketHeader*)*outPacket;
+
+    while (true) {
+        uint16_t ethertype;
+        size_t bytesRead;
+
+        /* odbierz kolejny pakiet */
+        if (eth_recv(&sock->ethSocket, &ethertype, (uint8_t*)*outPacket, &bytesRead)) {
+            logInfo("eth_recv failed");
+            continue;
+        }
+
+        ip6ToHostByteOrder(header);
+
+        if (ethertype == ETHERTYPE_IPv6
+                && header->nextHeaderType == HEADER_TYPE_TCP) {
+            tcpHeader = (tcpPacketHeader*)((char*)*outPacket + sizeof(*header));
+            tcpToHostByteOrder(tcpHeader);
+            /*tcpDebugPrint(tcpHeader);*/
+
+            return 0;
+        } else {
+#ifdef LONG_DEBUG
+            logInfo("skipping non-TCP packet (ethertype = %u, type = %u)",
+                    (unsigned)ethertype, (unsigned)header->nextHeaderType);
+#endif /* LONG_DEBUG */
+        }
+    }
+
+    logInfo("wtf?");
+    return -1;
+}
+
+
+static void tcpAddReceivedPacketToList(LIST(void*) *packets,
+                                       void *packet) {
     void ***curr;
     tcpPacketHeader *newTcpHeader = packetGetTcpHeader(packet);
 
-    logInfo("tcpAddPacketToList");
+    logInfo("tcpAddReceivedPacketToList");
 
     LIST_FOREACH_PTR(curr, packets) {
         tcpPacketHeader *tcpHeader = packetGetTcpHeader(*curr);
@@ -332,17 +383,29 @@ void tcpAddPacketToList(LIST(void*) *packets,
     *LIST_APPEND_NEW(packets, void*) = packet;
 }
 
-int tcpIp6ProcessPacket(bool accept,
-                        uint16_t acceptPort,
-                        tcpIp6Socket **outSocket) {
+static void acknowledgePackets(tcpIp6Socket *socket,
+                              uint32_t ackNumber) {
+    logInfo("acknowledged: %u", ackNumber);
+
+    LIST_CLEAR(&socket->unacknowledgedPackets) {
+        if (packetGetTcpHeader(*socket->unacknowledgedPackets)
+                ->base.sequenceNumber > ackNumber) {
+            break;
+        }
+    }
+}
+
+static int tcpIp6ProcessPacket(tcpIp6Socket *socket,
+                               uint16_t acceptPort) {
     void *packet;
     ip6PacketHeader *ip6Header;
     tcpPacketHeader *tcpHeader;
-    tcpIp6Socket *socket;
+    tcpIp6Socket *sockIter = NULL;
 
-    logInfo("tcpIp6ProcessPacket %d %u", accept, (unsigned)acceptPort);
+    assert(socket);
+    logInfo("tcpIp6ProcessPacket %p %u", socket, (unsigned)acceptPort);
 
-    if (ip6RecvNextPacket(&packet)) {
+    if (ip6RecvNextPacket(socket, &packet)) {
         return -1;
     }
 
@@ -352,29 +415,36 @@ int tcpIp6ProcessPacket(bool accept,
     logInfo("tcp packet: dst port = %u",
             (unsigned)tcpHeader->base.destinationPort);
 
-    LIST_FOREACH(socket, allTcpSockets) {
-        if (ip6AddressEqual(socket->remoteAddress, ip6Header->source)
-                && socket->remotePort == tcpHeader->base.sourcePort) {
-            tcpAddPacketToList(&socket->packets, packet);
+    LIST_FOREACH(sockIter, allTcpSockets) {
+        if (ip6AddressEqual(sockIter->remoteAddress, ip6Header->source)
+                && sockIter->remotePort == tcpHeader->base.sourcePort) {
+            tcpAddReceivedPacketToList(&sockIter->receivedPackets, packet);
+
+            if (tcpGetFlag(tcpHeader, TCP_FLAG_ACK)) {
+                acknowledgePackets(socket, tcpHeader->base.ackNumber);
+            }
             return 0;
         }
     }
 
     logInfo("no matching socket so far");
 
-    if (accept
-            && acceptPort == tcpHeader->base.destinationPort
+    if (acceptPort == tcpHeader->base.destinationPort
             && tcpGetFlag(tcpHeader, TCP_FLAG_SYN)) {
-        *outSocket = LIST_APPEND_NEW(&allTcpSockets, tcpIp6Socket);
+        static const ip6Address loAddr = { 0, 0, 0, 0, 0, 0, 0, 1 };
 
-        (*outSocket)->remotePort = tcpHeader->base.sourcePort;
-        memcpy((*outSocket)->remoteAddress, ip6Header->source,
+        socket->remotePort = tcpHeader->base.sourcePort;
+        /* TODO: correctly fill local address */
+        memcpy(socket->localAddress, loAddr, sizeof(ip6Address));
+        memcpy(socket->remoteAddress, ip6Header->source,
                sizeof(ip6Address));
-        (*outSocket)->localPort = tcpHeader->base.destinationPort;
-        (*outSocket)->state = SOCK_STATE_SYN_RECEIVED;
-        (*outSocket)->sequenceNumber = tcpHeader->base.sequenceNumber;
+        socket->localPort = tcpHeader->base.destinationPort;
+        socket->state = SOCK_STATE_SYN_RECEIVED;
+        socket->lastReceivedAckNumber = tcpHeader->base.ackNumber;
+        socket->sequenceNumber = tcpHeader->base.sequenceNumber;
+        socket->lastReceivedSeqNumber = socket->sequenceNumber;
 
-        tcpAddPacketToList(&(*outSocket)->packets, packet);
+        tcpAddReceivedPacketToList(&socket->receivedPackets, packet);
     } else {
         logInfo("skipping packet");
         free(packet);
@@ -383,16 +453,129 @@ int tcpIp6ProcessPacket(bool accept,
     return 0;
 }
 
+int scheduleSendPacket(tcpIp6Socket *sock,
+                       void *packet) {
+    void **elem = LIST_APPEND_NEW(&sock->unacknowledgedPackets, void*);
+    if (!elem) {
+        return -1;
+    }
+
+    *elem = packet;
+    return 0;
+}
+
+int resendPackets(tcpIp6Socket *sock) {
+    void **packet = NULL;
+    mac_address destinationMac;
+
+    if (arpQuery(sock->remoteAddress, &destinationMac)) {
+        logInfo("arpQuery() failed");
+        return -1;
+    }
+
+    LIST_FOREACH(packet, sock->unacknowledgedPackets) {
+        if (eth_send(&sock->ethSocket, &destinationMac, ETHERTYPE_IPv6,
+                     (uint8_t*)*packet, ETH_MAX_PAYLOAD_LEN) < 0) {
+            logInfo("eth_send failed");
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+int tcpIp6Send(tcpIp6Socket *sock,
+               uint32_t flags,
+               void *data,
+               size_t data_size) {
+    static const size_t MAX_REAL_DATA_PER_FRAME =
+            ETH_MAX_PAYLOAD_LEN - sizeof(ip6PacketHeader)
+                                - sizeof(tcpPacketHeaderBase);
+    size_t dataTransmitted = 0;
+    mac_address remoteMac;
+
+    if (arpQuery(sock->remoteAddress, &remoteMac)) {
+        logInfo("arpQuery failed");
+        return -1;
+    }
+
+    do {
+        void *packet = calloc(1, ETH_MAX_PAYLOAD_LEN);
+        ip6PacketHeader *ip6Header = packetGetIp6Header(packet);
+        tcpPacketHeader *tcpHeader = packetGetTcpHeader(packet);
+        void *dataPointer = (char*)tcpHeader + sizeof(tcpPacketHeaderBase);
+        size_t dataChunkLength = MIN(data_size, MAX_REAL_DATA_PER_FRAME);
+
+        memcpy(&ip6Header->source, &sock->localAddress,
+               sizeof(ip6Address));
+        memcpy(&ip6Header->destination, &sock->remoteAddress,
+               sizeof(ip6Address));
+        ip6Header->hopLimit = 255;
+        ip6Header->dataLength = sizeof(tcpPacketHeaderBase) + dataChunkLength;
+        ip6Header->nextHeaderType = HEADER_TYPE_TCP;
+        ip6SetVersion(ip6Header, 6);
+        ip6SetTrafficClass(ip6Header, 0);   /* TODO */
+        ip6SetFlowLabel(ip6Header, 0);      /* TODO */
+
+        tcpHeader->base.sourcePort = sock->localPort;
+        tcpHeader->base.destinationPort = sock->remotePort;
+        tcpHeader->base.urgentPointer = 0;  /* TODO */
+        tcpHeader->base.windowWidth = 0;    /* TODO */
+        tcpHeader->base.checksum = 0;       /* TODO */
+        tcpHeader->base.ackNumber = 0;      /* TODO */
+        tcpHeader->base.sequenceNumber = sock->sequenceNumber++;
+        tcpHeader->base.ackNumber = sock->lastReceivedSeqNumber;
+        tcpSetDataOffset(tcpHeader, sizeof(tcpPacketHeaderBase)
+                                    + dataTransmitted);
+        tcpSetFlags(tcpHeader, flags);
+
+        logInfo("-----\nSENDING/BEFORE:\n-----");
+        ip6DebugPrint(ip6Header);
+        tcpDebugPrint(tcpHeader);
+        logInfo("-----\n/ SENDING/BEFORE:\n-----");
+
+        ip6ToNetworkByteOrder(ip6Header);
+        tcpToNetworkByteOrder(tcpHeader);
+
+        memcpy(dataPointer, data, dataChunkLength);
+
+        if (scheduleSendPacket(sock, packet)) {
+            logInfo("scheduleSendPacket failed");
+            return -1;
+        }
+
+        data = (char*)data + dataChunkLength;
+        dataTransmitted += dataChunkLength;
+        data_size -= dataChunkLength;
+    } while (data_size > 0);
+
+    if (resendPackets(sock)) {
+        logInfo("resendPackets failed");
+        return -1;
+    }
+
+    return 0;
+}
+
 tcpIp6Socket *tcpIp6Accept(uint16_t port) {
-    tcpIp6Socket *sock = NULL;
+    tcpIp6Socket *sock = LIST_NEW_ELEMENT(tcpIp6Socket);
+    logInfo("sock = %p", sock);
+    eth_socket_init(&sock->ethSocket);
+    sock->state = SOCK_STATE_LISTEN;
 
     logInfo("tcpIp6Accept %u", (unsigned)port);
     do {
-        if (tcpIp6ProcessPacket(true, port, &sock)) {
+        if (tcpIp6ProcessPacket(sock, port)) {
             return NULL;
         }
-    } while (!sock);
+    } while (sock->state == SOCK_STATE_LISTEN);
 
+    if (tcpIp6Send(sock, TCP_FLAG_SYN | TCP_FLAG_ACK, NULL, 0)) {
+        logInfo("tcpIp6Send failed");
+        return NULL;
+    }
+
+    LIST_APPEND(&allTcpSockets, sock);
     return sock;
 }
 
@@ -401,8 +584,8 @@ void tcpIp6Close(tcpIp6Socket *sock) {
 
     LIST_FOREACH_PTR(curr, &allTcpSockets) {
         if (*curr == sock) {
-            LIST_CLEAR(&sock->packets) {
-                free(*sock->packets);
+            LIST_CLEAR(&sock->receivedPackets) {
+                free(*sock->receivedPackets);
             }
             LIST_ERASE(curr);
             return;
@@ -420,16 +603,20 @@ int tcpIp6Recv(tcpIp6Socket *sock,
         size_t bytesRemaining;
         size_t bytesToCopy;
 
-        while (!sock->packets) {
+        while (!sock->receivedPackets
+                /* TODO: ughhh, ugly */
+                || packetGetTcpHeader(*sock->receivedPackets)
+                    ->base.sequenceNumber !=
+                    sock->lastReceivedSeqNumber + 1) {
             logInfo("tcpIp6Recv waiting for packets");
-            if (tcpIp6ProcessPacket(false, 0, NULL)) {
+            if (tcpIp6ProcessPacket(sock, 0)) {
                 logInfo("tcpIp6ProcessPacket() failed");
                 return -1;
             }
         }
 
-        ip6Header = packetGetIp6Header(*sock->packets);
-        tcpHeader = packetGetTcpHeader(*sock->packets);
+        ip6Header = packetGetIp6Header(*sock->receivedPackets);
+        tcpHeader = packetGetTcpHeader(*sock->receivedPackets);
 
         dataOffset = tcpGetDataOffset(tcpHeader)
                      + sock->currPacketDataAlreadyRead;
@@ -443,7 +630,7 @@ int tcpIp6Recv(tcpIp6Socket *sock,
         bufferSize -= bytesToCopy;
 
         logInfo("DEBUG______");
-        ip6DebugPrint(ip6Header);
+        /*ip6DebugPrint(ip6Header);*/
 
         logInfo("%zu bytes read, %zu remaining\n"
                 "dataLength %zu, alreadyRead %zu",
@@ -452,8 +639,8 @@ int tcpIp6Recv(tcpIp6Socket *sock,
                 sock->currPacketDataAlreadyRead);
 
         if (bytesRemaining == bytesToCopy) {
-            free(*sock->packets);
-            LIST_ERASE(&sock->packets);
+            free(*sock->receivedPackets);
+            LIST_ERASE(&sock->receivedPackets);
             sock->currPacketDataAlreadyRead = 0;
         }
     }
@@ -493,16 +680,16 @@ int tcpIp6RecvLine(tcpIp6Socket *sock,
         char *lineEnd;
         bool isEndOfPacket = false;
 
-        while (!sock->packets) {
+        while (!sock->receivedPackets) {
             logInfo("tcpIp6RecvLine waiting for packets");
-            if (tcpIp6ProcessPacket(false, 0, NULL)) {
+            if (tcpIp6ProcessPacket(sock, 0)) {
                 logInfo("tcpIp6ProcessPacket() failed");
                 return -1;
             }
         }
 
-        ip6Header = packetGetIp6Header(*sock->packets);
-        tcpHeader = packetGetTcpHeader(*sock->packets);
+        ip6Header = packetGetIp6Header(*sock->receivedPackets);
+        tcpHeader = packetGetTcpHeader(*sock->receivedPackets);
 
         lineStart = ((char*)tcpHeader) + tcpGetDataOffset(tcpHeader)
                      + sock->currPacketDataAlreadyRead;
@@ -523,8 +710,8 @@ int tcpIp6RecvLine(tcpIp6Socket *sock,
             logInfo("end of packet!");
 
             stringAppendPart(outLine, lineStart, lineEnd);
-            free(*sock->packets);
-            LIST_ERASE(&sock->packets);
+            free(*sock->receivedPackets);
+            LIST_ERASE(&sock->receivedPackets);
             sock->currPacketDataAlreadyRead = 0;
         } else {
             assert(*lineEnd == '\n');

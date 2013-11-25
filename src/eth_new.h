@@ -21,9 +21,11 @@ typedef struct eth_frame {
 	mac_address dest_addr;
 	mac_address src_addr;
 	uint16_t ethertype;
-	uint8_t tail[1508];
+	uint8_t tail[ETH_MAX_PAYLOAD_LEN + 8];
 } eth_frame;
 #pragma pack()
+
+void eth_socket_init(eth_socket* ethsock);
 
 void bind_fd_to_mac(int sockfd, mac_address* mac, eth_socket* ethsock);
 int eth_send(eth_socket* ethsock, mac_address* dest, uint16_t ethertype,

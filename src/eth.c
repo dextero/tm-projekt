@@ -9,7 +9,6 @@
 
 static const char DATA[] = TEST_IPv6_PACKET;
 static const size_t dataSize = sizeof(DATA) - 1;
-static size_t currPos = 0;
 
 static uint32_t compute_crc(eth_frame* frame) {
 	uint32_t checksum;
@@ -56,29 +55,6 @@ eth_send_data_df(eth_socket* ethsock, mac_address* dest, char* buf, uint16_t len
 	to_send = 2 * sizeof(mac_address) + sizeof(uint16_t) + len + 4;
 	memcpy((void*) (frame.payload + len), &checksum, sizeof(checksum));
 	return write(sockfd, &frame, to_send);
-}
-
-void ethRecv(void *outBuffer, size_t bytes) {
-    while (bytes > 0) {
-        size_t bytesToCopy = MIN(dataSize - currPos, bytes);
-
-        memcpy(outBuffer, DATA + currPos, bytesToCopy);
-        outBuffer = (char*)outBuffer + bytesToCopy;
-        bytes -= bytesToCopy;
-        currPos = (currPos + bytesToCopy) % dataSize;
-    }
-}
-
-void ethSkip(size_t bytes) {
-    currPos = (currPos + bytes) % dataSize;
-}
-
-void ethSend(macAddress mac,
-             const void *buffer,
-             size_t bytes) {
-    (void)mac;
-    (void)buffer;
-    logInfo("ethSend: %lu bytes\n", bytes);
 }
 
 void bind_raw_socket_to_mac(int sockfd, mac_address* mac, eth_socket* ethsock) {

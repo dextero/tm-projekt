@@ -1,13 +1,11 @@
 #ifndef MIKRO_PROJEKT_UTILS_H
 #define MIKRO_PROJEKT_UTILS_H
 
+#include <stdint.h>
+
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
 
 typedef uint8_t bool;
 static const uint8_t true = 1;
