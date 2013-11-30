@@ -4,6 +4,6 @@
 
 int arpQuery(const ip6Address ip, mac_address *outMac) {
     (void)ip;
-    memset(outMac, 0xffffffff, sizeof(*outMac));
+    memset(outMac, 0, sizeof(*outMac));
     return 0;
 }
