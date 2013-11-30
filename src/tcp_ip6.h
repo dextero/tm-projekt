@@ -17,4 +17,8 @@ int tcpIp6Recv(tcpIp6Socket *sock,
                void *buffer,
                size_t bufferSize);
 
+int tcpIp6Send(tcpIp6Socket *sock,
+               void *data,
+               size_t data_size);
+
 #endif /* MIKRO_PROJEKT_TCP_IP6_H */

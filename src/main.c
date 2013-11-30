@@ -3,6 +3,14 @@
 #include "tcp_ip6.h"
 #include "utils.h"
 
+#define DUMMY_RESPONSE \
+    "HTTP/1.1 200 OK\n" \
+    "Content-Type: text/html; charset=UTF-8\n" \
+    "\n" \
+    "<html><head/><body>Hello world!</body></html>\n" \
+    "\n"
+
+
 int main() {
     char *line = NULL;
     size_t lineLength = 0;
@@ -27,6 +35,8 @@ int main() {
         free(line);
         line = NULL;
     }
+
+    tcpIp6Send(socket, DUMMY_RESPONSE, sizeof(DUMMY_RESPONSE) - 1);
 
     tcpIp6Close(socket);
     return 0;
