@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef uint16_t ip6Address[8];
 typedef struct tcpIp6Socket tcpIp6Socket;
 
 tcpIp6Socket *tcpIp6Accept(uint16_t port);

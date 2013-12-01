@@ -19,6 +19,7 @@
 
 void **list_last_ptr__(void **list_ptr);
 void list_erase__(void **list_ptr);
+size_t list_size__(void *list);
 
 #ifdef OMG_MEMORY_CORRUPTION
 static void *my_malloc(size_t size) {
@@ -44,6 +45,8 @@ static void my_free(void *p) {
 #endif /* OMG_MEMORY_CORRUPTION */
 
 #define LIST(type) type*
+
+#define LIST_SIZE(list) list_size__(list)
 
 #define LIST_NEXT(elem_ptr) \
     (*((TYPE(elem_ptr)*)(((char*)elem_ptr) - EXTRA_SPACE)))
