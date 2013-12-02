@@ -5,19 +5,25 @@
 #include "tcp_ip6.h"
 #include "utils.h"
 
+#define FREE_AND_RETURN(line, i) { free(line); return (i); }
+
 static int recv_first_line(tcpIp6Socket* socket, http_request* request);
 static bool line_empty(char* line);
 static char get_request_type(char* token);
 static bool protocol_name_invalid(char* token);
+static int recv_next_lines(tcpIp6Socket* socket, http_request* request);
+static int fill_proper_request_field(char* line, http_request* request);
+static int fill_specified_request_field(char* key, char* value, http_request* request);
+static void alloc_and_copy_string(char** dest_pointer, char* source);
+static int recv_msg_body(tcpIp6Socket* socket, http_request* request);
 
 static int recv_first_line(tcpIp6Socket* socket, http_request* request) {
-#define FREE_AND_RETURN(line, i) { free(line); return (i); }
   char* line;
   size_t line_length;
   char* token;
   char request_type;
   line = NULL;
-  line_length = -0;
+  line_length = 0;
   tcpIp6RecvLine(socket, &line, &line_length);
   if(line == NULL)
     return -1;
@@ -53,6 +59,10 @@ static bool line_empty(char* line) {
   return !line || line[0] == '\n' || (line[0] == '\r' && line[1] == '\n');
 }
 
+static bool line_crlf(char* line) {
+  return line != NULL && strlen(line) == 2 && line[0] == '\r' && line[1] == '\n';
+}
+
 static char get_request_type(char* token) {
   if(token == NULL)
     return HTTP_INCORRECT_REQUEST;
@@ -68,6 +78,83 @@ static bool protocol_name_invalid(char* token) {
   return strcmp(token, "HTTP/1.0") && strcmp(token, "HTTP/1.1");
 }
 
+static int recv_next_lines(tcpIp6Socket* socket, http_request* request) {
+  char* line;
+  size_t line_length; 
+  tcpIp6RecvLine(socket, &line, &line_length);
+  if(line_crlf(line)) {
+    if(request->request_type == HTTP_POST && request->content == NULL) {
+      FREE_AND_RETURN(line, recv_msg_body(socket, request));
+    } else {
+      FREE_AND_RETURN(line, 0);
+    }
+  } else if(line_empty(line)) {
+    if(line != NULL)
+      free(line);
+    return 0;
+  } else {
+    if(fill_proper_request_field(line, request)) {
+      FREE_AND_RETURN(line, -1);
+    } else {
+      FREE_AND_RETURN(line, recv_next_lines(socket, request));
+    }
+  }
+}
+
+static int recv_msg_body(tcpIp6Socket* socket, http_request* request) {
+  char* line;
+  char* line_content;
+  size_t line_length;
+  tcpIp6RecvLine(socket, &line, &line_length);
+  if(line == NULL) {
+    return -1;
+  }
+  line_content = strtok(line, "\n\r");
+  if(line_content == NULL) {
+    FREE_AND_RETURN(line, -1);
+  }
+  alloc_and_copy_string(&request->content, line_content);
+  free(line);
+  tcpIp6RecvLine(socket, &line, &line_length);
+  if(line_crlf(line)) {
+    FREE_AND_RETURN(line, 0);
+  } else {
+    FREE_AND_RETURN(line, -1);
+  }
+}
+
+static int fill_proper_request_field(char* line, http_request* request) {
+  char* key;
+  char* value;
+  if(line == NULL || request == NULL)
+    return -1;
+  key = strtok(line, ":");
+  value = strtok(NULL, "\n\r");
+  if(key == NULL || value == NULL)
+    return -1;
+  if(value[0] != ' ')
+    return -1;
+  ++value;
+  return fill_specified_request_field(key, value, request);
+}
+
+static int
+fill_specified_request_field(char* key, char* value, http_request* request) {
+  if(!strcmp(key, "Accept")) {
+    alloc_and_copy_string(&request->accept, value);
+  } else if(!strcmp(key, "Content-Type")) {
+    alloc_and_copy_string(&request->content_type, value);
+  } else if(!strcmp(key, "Content-Length")) {
+    request->content_length = (size_t) atoi(value);
+  }
+  return 0;
+}
+
+static void alloc_and_copy_string(char** dest_pointer, char* source) {
+  *dest_pointer = malloc(strlen(source) + 1);
+  memcpy(*dest_pointer, source, strlen(source + 1));
+}
+
 void http_destroy_request(http_request* request) {
   if(request == NULL)
     return;
@@ -81,6 +168,7 @@ void http_destroy_request(http_request* request) {
     free(request->content_type);
   if(request->content != NULL)
     free(request->content);
+  free(request);
 }
 
 void http_destroy_response(http_response* response) {
@@ -98,14 +186,18 @@ void http_destroy_response(http_response* response) {
     free(response->content_type);
   if(response->content != NULL)
     free(response->content);
+  free(response);
 }
 
 http_request* http_recv_request(tcpIp6Socket* socket) {
-  http_request request;
-  if(recv_first_line(socket, &request)) {
-    http_destroy_request(&request);
+  http_request* request = malloc(sizeof(http_request));
+  if(recv_first_line(socket, request)) {
+    http_destroy_request(request);
     return NULL;
   }
-  /* TODO */
-  return NULL;
+  if(recv_next_lines(socket, request)) {
+    http_destroy_request(request);
+    return NULL;
+  }
+  return request;
 }

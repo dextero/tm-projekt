@@ -6,6 +6,10 @@
 #define HTTP_INCORRECT_REQUEST 0
 #define HTTP_GET 66
 #define HTTP_POST 67
+#define HTTP_CODE_OK 200
+#define HTTP_CODE_BAD_REQUEST 400
+#define HTTP_CODE_FORBIDDEN 403
+#define HTTP_CODE_NOT_FOUND 404
 
 #pragma pack(1)
 typedef struct http_request {
