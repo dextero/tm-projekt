@@ -1,5 +1,9 @@
 #include "utils.h"
 
+#ifdef logInfo
+#undef logInfo
+#endif
+
 #include <stdio.h>
 #include <stdarg.h>
 

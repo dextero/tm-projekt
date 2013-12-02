@@ -38,7 +38,7 @@ void ip6SetFlowLabel(ip6PacketHeader *header,
 }
 
 #ifdef _DEBUG
-void ip6DebugPrintAddress6(const char *label, const ip6Address addr) {
+void ip6DebugPrintAddress(const char *label, const ip6Address addr) {
     size_t i;
     enum {
         NOT_ENCOUNTERED_YET,
@@ -74,8 +74,8 @@ void ip6DebugPrintAddress6(const char *label, const ip6Address addr) {
 
 void ip6DebugPrint(const ip6PacketHeader *header) {
 #ifndef LONG_DEBUG
-    ip6DebugPrintAddress6("from ", header->source);
-    ip6DebugPrintAddress6(" to ", header->destination);
+    ip6DebugPrintAddress("from ", header->source);
+    ip6DebugPrintAddress(" to ", header->destination);
     logInfo("");
 #else
 #define FORMAT "%-6u (%x)"
@@ -93,9 +93,9 @@ void ip6DebugPrint(const ip6PacketHeader *header) {
         (uint32_t)header->dataLength,     (uint32_t)header->dataLength,
         (uint32_t)header->nextHeaderType, (uint32_t)header->nextHeaderType,
         (uint32_t)header->hopLimit,       (uint32_t)header->hopLimit);
-    ip6DebugPrintAddress6("       source: ", header->source);
+    ip6DebugPrintAddress("       source: ", header->source);
     logInfo("");
-    ip6DebugPrintAddress6("  destination: ", header->destination);
+    ip6DebugPrintAddress("  destination: ", header->destination);
     logInfo("");
 #undef FORMAT
 #endif /* LONG_DEBUG */

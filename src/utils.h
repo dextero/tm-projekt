@@ -26,4 +26,11 @@ uint32_t ntohl(uint32_t bytes);
 void logInfoNoNewline(const char *format, ...);
 void logInfo(const char *format, ...);
 
+#define _STR(x) #x
+#define STR(x) _STR(x)
+
+/*
+ *#define logInfo(format, ...) logInfo(__FILE__ ":" STR(__LINE__) ": " format, ##__VA_ARGS__)
+ */
+
 #endif /* MIKRO_PROJEKT_UTILS_H */

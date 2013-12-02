@@ -17,9 +17,6 @@ typedef struct tcpPacketHeaderBase {
 } tcpPacketHeaderBase;
 
 typedef enum tcpFlags {
-    TCP_FLAG_NS  = (1 << 8),
-    TCP_FLAG_CWR = (1 << 7),
-    TCP_FLAG_ECN = (1 << 6),
     TCP_FLAG_URG = (1 << 5),
     TCP_FLAG_ACK = (1 << 4),
     TCP_FLAG_PSH = (1 << 3),

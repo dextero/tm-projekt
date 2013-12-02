@@ -4,12 +4,16 @@
 #include "tcp_ip6.h"
 #include "utils.h"
 
-#define DUMMY_RESPONSE \
+#define DUMMY_RESPONSE_HTML \
+    "<html><head/><body>Hello world!</body></html>\n"
+
+#define DUMMY_RESPONSE_HEADERS \
     "HTTP/1.1 200 OK\n" \
     "Content-Type: text/html; charset=UTF-8\n" \
-    "\n" \
-    "<html><head/><body>Hello world!</body></html>\n" \
+    "Content-Length: 46\n" \
     "\n"
+
+#define DUMMY_RESPONSE DUMMY_RESPONSE_HEADERS DUMMY_RESPONSE_HTML
 
 
 int main() {
