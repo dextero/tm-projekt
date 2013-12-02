@@ -18,6 +18,7 @@
 #endif /* HAVE_TYPEOF */
 
 void **list_last_ptr__(void **list_ptr);
+void *list_last__(void *list);
 void list_erase__(void **list_ptr);
 size_t list_size__(void *list);
 
@@ -61,6 +62,9 @@ static void my_free(void *p) {
 
 #define LIST_LAST_PTR(list_ptr) \
     ((TYPE(list_ptr)*)list_last_ptr__((void**)list_ptr))
+
+#define LIST_LAST(list) \
+    ((TYPE(list)*)(list_last__((void*)list)))
 
 #define LIST_NEW_BUFFER(size) \
     ((char*)calloc(1, (size) + EXTRA_SPACE) + EXTRA_SPACE)
