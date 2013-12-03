@@ -208,8 +208,10 @@ static void addReceivedPacket(tcpIp6Socket *sock,
         *LIST_APPEND_NEW(packets, void*) = packet;
     }
 
-    logInfo("packet inserted; seq was %u, is %u",
-            sock->lastReceivedSeqNumber, seqNumberToAcknowledge);
+    /*
+     *logInfo("packet inserted; seq was %u, is %u",
+     *        sock->lastReceivedSeqNumber, seqNumberToAcknowledge);
+     */
     if (seqNumberToAcknowledge > sock->lastReceivedSeqNumber) {
         sock->lastReceivedSeqNumber = seqNumberToAcknowledge;
 
@@ -576,7 +578,7 @@ static int closeConnection(tcpIp6Socket *sock) {
         return -1;
     }
 
-    logInfo("FIN sent, waiting for reply");
+    /*logInfo("FIN sent, waiting for reply");*/
     sock->state = SOCK_STATE_FIN_WAIT_1;
 
     do {
