@@ -6,7 +6,11 @@
 
 typedef struct tcpIp6Socket tcpIp6Socket;
 
-tcpIp6Socket *tcpIp6Accept(uint16_t port);
+tcpIp6Socket *tcpIp6SocketCreate(void);
+void tcpIp6SocketRelease(tcpIp6Socket *sock);
+
+int tcpIp6Accept(tcpIp6Socket *sock,
+                 uint16_t port);
 void tcpIp6Close(tcpIp6Socket *sock);
 
 int tcpIp6RecvLine(tcpIp6Socket *sock,

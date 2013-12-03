@@ -90,7 +90,7 @@ static void printSocket(tcpIp6Socket *sock) {
     logInfo("packets unacknowledged: %lu", LIST_SIZE(sock->unacknowledgedPackets));
 }
 #else
-#define printSocket(x) (void)
+#define printSocket(x) (void)0
 #endif /* _DEBUG */
 
 static void printPacketInfo(const char *header,
@@ -283,13 +283,15 @@ static int processPacket(tcpIp6Socket *sock,
         if (tcpGetFlag(tcpHeader, TCP_FLAG_FIN)) {
             sock->state = SOCK_STATE_TIME_WAIT;
             sock->lastReceivedSeqNumber = tcpHeader->base.sequenceNumber;
+            ++sock->sequenceNumber;
             savePacket = false;
 
             if (sendWithFlags(sock, TCP_FLAG_ACK, NULL, 0)) {
                 logInfo("sendWithFlags failed");
                 return -1;
             }
-        }        break;
+        }
+        break;
     default:
         logInfo("packet received while in state %d", sock->state);
         break;
@@ -523,33 +525,48 @@ int tcpIp6Send(tcpIp6Socket *sock,
     return sendWithFlags(sock, TCP_FLAG_ACK | TCP_FLAG_PSH, data, data_size);
 }
 
-tcpIp6Socket *tcpIp6Accept(uint16_t port) {
-    tcpIp6Socket *sock = LIST_NEW_ELEMENT(tcpIp6Socket);
+tcpIp6Socket *tcpIp6SocketCreate(void) {
+    return LIST_APPEND_NEW(&allTcpSockets, tcpIp6Socket);
+}
+
+void tcpIp6SocketRelease(tcpIp6Socket *sock) {
+    tcpIp6Socket **sockPtr;
+
+    LIST_FOREACH_PTR(sockPtr, &allTcpSockets) {
+        if (*sockPtr == sock) {
+            LIST_ERASE(sockPtr);
+            logInfo("socket erased");
+            return;
+        }
+    }
+}
+
+int tcpIp6Accept(tcpIp6Socket *sock,
+                 uint16_t port) {
     eth_socket_init(&sock->ethSocket);
     sock->state = SOCK_STATE_LISTEN;
     sock->localPort = port;
-    LIST_APPEND(&allTcpSockets, sock);
 
     do {
         if (processNextPacket(sock)) {
             logInfo("processPacket failed");
-            return NULL;
+            return -1;
         }
     } while (sock->state == SOCK_STATE_LISTEN);
 
     if (sendWithFlags(sock, TCP_FLAG_SYN | TCP_FLAG_ACK, NULL, 0)) {
         logInfo("sendWithFlags failed");
-        return NULL;
+        return -1;
     }
 
     do {
         if (processNextPacket(sock)) {
             logInfo("processPacket failed");
-            return NULL;
+            return -1;
         }
     } while (sock->state != SOCK_STATE_ESTABLISHED);
 
-    return sock;
+    return 0;
 }
 
 static int closeConnection(tcpIp6Socket *sock) {
@@ -569,7 +586,9 @@ static int closeConnection(tcpIp6Socket *sock) {
         }
     } while (sock->state == SOCK_STATE_FIN_WAIT_1);
 
-    logInfo("***** connection closed *****");
+    logInfo("connection closed");
+
+    memset(sock, 0, sizeof(*sock));
     sock->state = SOCK_STATE_CLOSED;
     return 0;
 }
@@ -584,7 +603,7 @@ void tcpIp6Close(tcpIp6Socket *sock) {
             LIST_CLEAR(&sock->receivedPackets) {
                 free(*sock->receivedPackets);
             }
-            LIST_ERASE(curr);
+            logInfo("remaining packets freed");
             return;
         }
     }
