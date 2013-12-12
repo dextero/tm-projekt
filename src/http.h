@@ -7,6 +7,7 @@
 #define HTTP_GET 66
 #define HTTP_POST 67
 #define HTTP_CODE_OK 200
+#define HTTP_CODE_NO_CONTENT 204
 #define HTTP_CODE_BAD_REQUEST 400
 #define HTTP_CODE_FORBIDDEN 403
 #define HTTP_CODE_NOT_FOUND 404
@@ -26,7 +27,6 @@ typedef struct http_request {
 typedef struct http_response {
   char* protocol;
   uint16_t code;
-  char* code_description;
   char* date;
   char* server;
   char* content_type;
@@ -37,6 +37,6 @@ typedef struct http_response {
 void http_destroy_request(http_request* request);
 void http_destroy_response(http_response* response);
 http_request* http_recv_request(tcpIp6Socket* socket);
-void http_send_response(tcpIp6Socket* socket, http_response* response);
+int http_send_response(tcpIp6Socket* socket, http_response* response);
 
 #endif /* MIKRO_PROJEKT_HTTP_H */

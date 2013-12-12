@@ -1,5 +1,6 @@
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "http.h"
 #include "tcp_ip6.h"
@@ -16,6 +17,12 @@ static int fill_proper_request_field(char* line, http_request* request);
 static int fill_specified_request_field(char* key, char* value, http_request* request);
 static void alloc_and_copy_string(char** dest_pointer, char* source);
 static int recv_msg_body(tcpIp6Socket* socket, http_request* request);
+static int response_incorrect(http_response* response);
+static int send_response_first_line(tcpIp6Socket* socket, http_response* response);
+static char* get_code_description_no_free(uint16_t code);
+static int send_response_key_val(tcpIp6Socket* socket,
+    char* key, char* value);
+static int send_response_content(tcpIp6Socket* socket, char* content);
 
 static int recv_first_line(tcpIp6Socket* socket, http_request* request) {
   char* line;
@@ -176,8 +183,6 @@ void http_destroy_response(http_response* response) {
     return;
   if(response->protocol != NULL)
     free(response->protocol);
-  if(response->code_description != NULL)
-    free(response->code_description);
   if(response->date != NULL)
     free(response->date);
   if(response->server != NULL)
@@ -200,4 +205,97 @@ http_request* http_recv_request(tcpIp6Socket* socket) {
     return NULL;
   }
   return request;
+}
+
+int http_send_response(tcpIp6Socket* socket, http_response* response) {
+  if(response_incorrect(response))
+    return -1;
+  send_response_first_line(socket, response);
+  if(response->date != NULL &&
+      send_response_key_val(socket, "Date",  response->date))
+    return -1;
+  if(response->server != NULL &&
+      send_response_key_val(socket, "Server",  response->server))
+    return -1;
+  if(response->content_type != NULL &&
+      send_response_key_val(socket, "Content-Type",  response->content_type))
+    return -1;
+  if(response->code != HTTP_CODE_NO_CONTENT &&
+      response->content != NULL &&
+      send_response_content(socket, response->content))
+    return -1;
+  if(response->date != NULL &&
+      send_response_key_val(socket, "",  response->date))
+    return -1;
+  return 0;
+}
+
+static int response_incorrect(http_response* response) {
+  return
+      response == NULL ||
+      response->protocol == NULL ||
+      (response->code != HTTP_CODE_OK &&
+          response->code != HTTP_CODE_NO_CONTENT &&
+          response->code != HTTP_CODE_BAD_REQUEST &&
+          response->code != HTTP_CODE_FORBIDDEN &&
+          response->code != HTTP_CODE_NOT_FOUND);
+}
+
+static int send_response_first_line(tcpIp6Socket* socket, http_response* response) {
+  char code_number[8];
+  char* code_description;
+  char* line;
+  int result;
+  sprintf(code_number, "%d", response->code);
+  code_description = get_code_description_no_free(response->code);
+  line  = malloc(strlen(response->protocol) + strlen(code_number)
+      + strlen(code_description) + 6);
+  strcpy(line, response->protocol);
+  strcat(line, " ");
+  strcat(line, code_number);
+  strcat(line, " ");
+  strcat(line, code_description);
+  strcat(line, "\r\n");
+  result = tcpIp6Send(socket, line, strlen(line));
+  FREE_AND_RETURN(line, result);
+}
+
+static char* get_code_description_no_free(uint16_t code) {
+  switch(code) {
+    default:
+    case HTTP_CODE_OK:
+      return "OK";
+    case HTTP_CODE_NO_CONTENT:
+      return "No content";
+    case HTTP_CODE_BAD_REQUEST:
+      return "Bad request";
+    case HTTP_CODE_FORBIDDEN:
+      return "Forbidden";
+    case HTTP_CODE_NOT_FOUND:
+      return "Not Found";
+  }
+}
+
+static int send_response_key_val(tcpIp6Socket* socket,
+    char* key, char* value) {
+  char* line;
+  int result;
+  line = malloc(strlen(key) + strlen(value) + 5);
+  strcpy(line, key);
+  strcat(line, ": ");
+  strcat(line, value);
+  strcat(line, "\r\n");
+  result = tcpIp6Send(socket, line, strlen(line));
+  FREE_AND_RETURN(line, result);  
+}
+
+static int send_response_content(tcpIp6Socket* socket,
+    char* content) {
+  char* line;
+  int result;
+  line = malloc(strlen(content) + 3);
+  strcpy(line, "\r\n");
+  strcat(line, content);
+  result = tcpIp6Send(socket, line, strlen(line));
+  FREE_AND_RETURN(line, result);
 }
