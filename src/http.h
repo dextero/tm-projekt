@@ -34,9 +34,10 @@ typedef struct http_response {
 } http_response;
 #pragma pack()
 
-void http_destroy_request(http_request* request);
-void http_destroy_response(http_response* response);
+void http_destroy_request_content(http_request* request);
+void http_destroy_response_content(http_response* response);
 http_request* http_recv_request(tcpIp6Socket* socket);
+void http_init_response(http_response* response);
 int http_send_response(tcpIp6Socket* socket, http_response* response);
 
 #endif /* MIKRO_PROJEKT_HTTP_H */

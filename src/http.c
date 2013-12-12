@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "http.h"
 #include "tcp_ip6.h"
@@ -15,14 +16,12 @@ static bool protocol_name_invalid(char* token);
 static int recv_next_lines(tcpIp6Socket* socket, http_request* request);
 static int fill_proper_request_field(char* line, http_request* request);
 static int fill_specified_request_field(char* key, char* value, http_request* request);
-static void alloc_and_copy_string(char** dest_pointer, char* source);
 static int recv_msg_body(tcpIp6Socket* socket, http_request* request);
-static int response_incorrect(http_response* response);
-static int send_response_first_line(tcpIp6Socket* socket, http_response* response);
+static int is_response_incorrect(http_response* response);
+static char* accumulate_first_line(char* accumulator, http_response* response);
 static char* get_code_description_no_free(uint16_t code);
-static int send_response_key_val(tcpIp6Socket* socket,
-    char* key, char* value);
-static int send_response_content(tcpIp6Socket* socket, char* content);
+static char* accumulate_key_val(char* accumulator, char* key, char* value);
+static char* accumulate_content(char* accumulator, char* content);
 
 static int recv_first_line(tcpIp6Socket* socket, http_request* request) {
   char* line;
@@ -157,12 +156,7 @@ fill_specified_request_field(char* key, char* value, http_request* request) {
   return 0;
 }
 
-static void alloc_and_copy_string(char** dest_pointer, char* source) {
-  *dest_pointer = malloc(strlen(source) + 1);
-  memcpy(*dest_pointer, source, strlen(source + 1));
-}
-
-void http_destroy_request(http_request* request) {
+void http_destroy_request_content(http_request* request) {
   if(request == NULL)
     return;
   if(request->URI != NULL)
@@ -175,10 +169,9 @@ void http_destroy_request(http_request* request) {
     free(request->content_type);
   if(request->content != NULL)
     free(request->content);
-  free(request);
 }
 
-void http_destroy_response(http_response* response) {
+void http_destroy_response_content(http_response* response) {
   if(response == NULL)
     return;
   if(response->protocol != NULL)
@@ -191,46 +184,57 @@ void http_destroy_response(http_response* response) {
     free(response->content_type);
   if(response->content != NULL)
     free(response->content);
-  free(response);
 }
 
 http_request* http_recv_request(tcpIp6Socket* socket) {
   http_request* request = malloc(sizeof(http_request));
   if(recv_first_line(socket, request)) {
-    http_destroy_request(request);
+    http_destroy_request_content(request);
+    free(request);
     return NULL;
   }
   if(recv_next_lines(socket, request)) {
-    http_destroy_request(request);
+    http_destroy_request_content(request);
+    free(request);
     return NULL;
   }
   return request;
 }
 
-int http_send_response(tcpIp6Socket* socket, http_response* response) {
-  if(response_incorrect(response))
-    return -1;
-  send_response_first_line(socket, response);
-  if(response->date != NULL &&
-      send_response_key_val(socket, "Date",  response->date))
-    return -1;
-  if(response->server != NULL &&
-      send_response_key_val(socket, "Server",  response->server))
-    return -1;
-  if(response->content_type != NULL &&
-      send_response_key_val(socket, "Content-Type",  response->content_type))
-    return -1;
-  if(response->code != HTTP_CODE_NO_CONTENT &&
-      response->content != NULL &&
-      send_response_content(socket, response->content))
-    return -1;
-  if(response->date != NULL &&
-      send_response_key_val(socket, "",  response->date))
-    return -1;
-  return 0;
+void http_init_response(http_response* response) {
+  time_t current_time;
+  memset((void*) response, (uint8_t) 0, sizeof(http_response));
+  alloc_and_copy_string(&response->protocol, "HTTP/1.1");
+  alloc_and_copy_string(&response->server, "Pawlicki-Radomski uber application serv ftw.");
+  time(&current_time);
+  alloc_and_copy_string(&response->date, (char*) ctime(&current_time));
+  response->date[strlen(response->date) - 1] = '\0';
 }
 
-static int response_incorrect(http_response* response) {
+int http_send_response(tcpIp6Socket* socket, http_response* response) {
+  char* accumulator;
+  int result;
+  if(is_response_incorrect(response))
+    return -1;
+  accumulator = malloc(1);
+  accumulator[0] = '\0';
+  accumulator = accumulate_first_line(accumulator, response);
+  if(response->date != NULL)
+    accumulator = accumulate_key_val(accumulator, "Date",  response->date);
+  if(response->server != NULL)
+    accumulator = accumulate_key_val(accumulator, "Server",  response->server);
+  if(response->content_type != NULL)
+    accumulator = accumulate_key_val(
+        accumulator, "Content-Type",  response->content_type);
+  if(response->code != HTTP_CODE_NO_CONTENT &&
+      response->content != NULL)
+    accumulator = accumulate_content(accumulator, response->content);
+  result = tcpIp6Send(socket, accumulator, strlen(accumulator));
+  free(accumulator);
+  return result;
+}
+
+static int is_response_incorrect(http_response* response) {
   return
       response == NULL ||
       response->protocol == NULL ||
@@ -241,23 +245,22 @@ static int response_incorrect(http_response* response) {
           response->code != HTTP_CODE_NOT_FOUND);
 }
 
-static int send_response_first_line(tcpIp6Socket* socket, http_response* response) {
+static char* accumulate_first_line(char* accumulator, http_response* response) {
   char code_number[8];
   char* code_description;
-  char* line;
-  int result;
+  size_t length;
   sprintf(code_number, "%d", response->code);
   code_description = get_code_description_no_free(response->code);
-  line  = malloc(strlen(response->protocol) + strlen(code_number)
-      + strlen(code_description) + 6);
-  strcpy(line, response->protocol);
-  strcat(line, " ");
-  strcat(line, code_number);
-  strcat(line, " ");
-  strcat(line, code_description);
-  strcat(line, "\r\n");
-  result = tcpIp6Send(socket, line, strlen(line));
-  FREE_AND_RETURN(line, result);
+  length = strlen(response->protocol) + strlen(code_number)
+      + strlen(code_description) + 3;
+  accumulator = realloc((void*) accumulator, strlen(accumulator) + length + 1);
+  strcat(accumulator, response->protocol);
+  strcat(accumulator, " ");
+  strcat(accumulator, code_number);
+  strcat(accumulator, " ");
+  strcat(accumulator, code_description);
+  strcat(accumulator, "\n");
+  return accumulator;
 }
 
 static char* get_code_description_no_free(uint16_t code) {
@@ -276,26 +279,30 @@ static char* get_code_description_no_free(uint16_t code) {
   }
 }
 
-static int send_response_key_val(tcpIp6Socket* socket,
+static char* accumulate_key_val(char* accumulator,
     char* key, char* value) {
-  char* line;
-  int result;
-  line = malloc(strlen(key) + strlen(value) + 5);
-  strcpy(line, key);
-  strcat(line, ": ");
-  strcat(line, value);
-  strcat(line, "\r\n");
-  result = tcpIp6Send(socket, line, strlen(line));
-  FREE_AND_RETURN(line, result);  
+  int length;
+  length = strlen(key) + strlen(value) + 3;
+  accumulator = realloc((void*) accumulator, strlen(accumulator) + length + 1);
+  strcat(accumulator, key);
+  strcat(accumulator, ": ");
+  strcat(accumulator, value);
+  strcat(accumulator, "\n");
+  return accumulator;
 }
 
-static int send_response_content(tcpIp6Socket* socket,
+static char* accumulate_content(char* accumulator,
     char* content) {
-  char* line;
-  int result;
-  line = malloc(strlen(content) + 3);
-  strcpy(line, "\r\n");
-  strcat(line, content);
-  result = tcpIp6Send(socket, line, strlen(line));
-  FREE_AND_RETURN(line, result);
+  int content_length;
+  int buf_length;
+  char length_string[8];
+  content_length = strlen(content);
+  sprintf(length_string, "%d", content_length);
+  accumulator = accumulate_key_val(accumulator, "Content-Length", length_string);
+  buf_length = strlen(accumulator) + strlen(content) + 3;
+  accumulator = realloc((void*) accumulator, buf_length);
+  strcat(accumulator, "\r\n");
+  strcat(accumulator, content);
+  return accumulator;
 }
+
