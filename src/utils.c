@@ -30,3 +30,8 @@ void logInfo(const char *format, ...) {
 
     printf("\n");
 }
+
+void alloc_and_copy_string(char** dest_ptr, char* source) {
+    *dest_ptr = malloc(strlen(source) + 1);
+    strcpy(*dest_ptr, source);
+}

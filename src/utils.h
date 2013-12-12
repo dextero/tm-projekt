@@ -33,4 +33,7 @@ void logInfo(const char *format, ...);
  *#define logInfo(format, ...) logInfo(__FILE__ ":" STR(__LINE__) ": " format, ##__VA_ARGS__)
  */
 
+/* alokuje pamiec dla stringa i kopiuje */
+void alloc_and_copy_string(char** dest_pointer, char* source);
+
 #endif /* MIKRO_PROJEKT_UTILS_H */
