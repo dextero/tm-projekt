@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "http.h"
 #include "tcp_ip6.h"
 #include "utils.h"
 
@@ -33,7 +34,8 @@ int main() {
 
         logInfo("connection accepted!");
         logInfo("received data:");
-
+        
+        /*
         do {
             tcpIp6RecvLine(socket, &line, &lineLength);
             printf("> %s", line);
@@ -45,9 +47,25 @@ int main() {
             free(line);
             line = NULL;
         } while (!httpHeaderEnd);
+        */
+        http_request request;
+        memset(&request, 0, sizeof(http_request));
+        http_recv_request(socket, &request);
+        http_print_request(&request);
+        http_destroy_request_content(&request);
 
         logInfo("seding HTTP 200...");
-        tcpIp6Send(socket, DUMMY_RESPONSE, sizeof(DUMMY_RESPONSE) - 1);
+        // tcpIp6Send(socket, DUMMY_RESPONSE, sizeof(DUMMY_RESPONSE) - 1);
+
+        http_response resp;
+        http_init_response(&resp);
+        resp.code = 200;
+        alloc_and_copy_string(&resp.content_type,"text/html; charset=UTF-8");
+        alloc_and_copy_string(&resp.content, DUMMY_RESPONSE_HTML);
+        http_send_response(socket, &resp);
+        http_print_response(&resp);
+        http_destroy_response_content(&resp);
+
         logInfo("response sent!");
 
         tcpIp6Close(socket);
