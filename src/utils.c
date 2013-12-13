@@ -6,6 +6,8 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 
 uint16_t ntohs(uint16_t bytes) {
     return __builtin_bswap16(bytes);

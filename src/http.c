@@ -18,10 +18,12 @@ static int fill_proper_request_field(char* line, http_request* request);
 static int fill_specified_request_field(char* key, char* value, http_request* request);
 static int recv_msg_body(tcpIp6Socket* socket, http_request* request);
 static int is_response_incorrect(http_response* response);
+static char* accumulate_response(char* accumulator, http_response* response);
 static char* accumulate_first_line(char* accumulator, http_response* response);
-static char* get_code_description_no_free(uint16_t code);
+static char* get_code_description(uint16_t code);
 static char* accumulate_key_val(char* accumulator, char* key, char* value);
 static char* accumulate_content(char* accumulator, char* content);
+static char* get_request_code(int request_code);
 
 static int recv_first_line(tcpIp6Socket* socket, http_request* request) {
   char* line;
@@ -186,19 +188,18 @@ void http_destroy_response_content(http_response* response) {
     free(response->content);
 }
 
-http_request* http_recv_request(tcpIp6Socket* socket) {
-  http_request* request = malloc(sizeof(http_request));
+int http_recv_request(tcpIp6Socket* socket, http_request* request) {
+  if(request == NULL)
+    return -1;
   if(recv_first_line(socket, request)) {
     http_destroy_request_content(request);
-    free(request);
-    return NULL;
+    return -1;
   }
   if(recv_next_lines(socket, request)) {
-    http_destroy_request_content(request);
     free(request);
-    return NULL;
+    return -1;
   }
-  return request;
+  return 0;
 }
 
 void http_init_response(http_response* response) {
@@ -218,17 +219,7 @@ int http_send_response(tcpIp6Socket* socket, http_response* response) {
     return -1;
   accumulator = malloc(1);
   accumulator[0] = '\0';
-  accumulator = accumulate_first_line(accumulator, response);
-  if(response->date != NULL)
-    accumulator = accumulate_key_val(accumulator, "Date",  response->date);
-  if(response->server != NULL)
-    accumulator = accumulate_key_val(accumulator, "Server",  response->server);
-  if(response->content_type != NULL)
-    accumulator = accumulate_key_val(
-        accumulator, "Content-Type",  response->content_type);
-  if(response->code != HTTP_CODE_NO_CONTENT &&
-      response->content != NULL)
-    accumulator = accumulate_content(accumulator, response->content);
+  accumulator = accumulate_response(accumulator, response);
   result = tcpIp6Send(socket, accumulator, strlen(accumulator));
   free(accumulator);
   return result;
@@ -245,12 +236,27 @@ static int is_response_incorrect(http_response* response) {
           response->code != HTTP_CODE_NOT_FOUND);
 }
 
+static char* accumulate_response(char* accumulator, http_response* response) {
+  accumulator = accumulate_first_line(accumulator, response);
+  if(response->date != NULL)
+    accumulator = accumulate_key_val(accumulator, "Date",  response->date);
+  if(response->server != NULL)
+    accumulator = accumulate_key_val(accumulator, "Server",  response->server);
+  if(response->content_type != NULL)
+    accumulator = accumulate_key_val(
+        accumulator, "Content-Type",  response->content_type);
+  if(response->code != HTTP_CODE_NO_CONTENT &&
+      response->content != NULL)
+    accumulator = accumulate_content(accumulator, response->content);
+  return accumulator;
+}
+
 static char* accumulate_first_line(char* accumulator, http_response* response) {
   char code_number[8];
   char* code_description;
   size_t length;
   sprintf(code_number, "%d", response->code);
-  code_description = get_code_description_no_free(response->code);
+  code_description = get_code_description(response->code);
   length = strlen(response->protocol) + strlen(code_number)
       + strlen(code_description) + 3;
   accumulator = realloc((void*) accumulator, strlen(accumulator) + length + 1);
@@ -263,7 +269,7 @@ static char* accumulate_first_line(char* accumulator, http_response* response) {
   return accumulator;
 }
 
-static char* get_code_description_no_free(uint16_t code) {
+static char* get_code_description(uint16_t code) {
   switch(code) {
     default:
     case HTTP_CODE_OK:
@@ -306,3 +312,47 @@ static char* accumulate_content(char* accumulator,
   return accumulator;
 }
 
+void http_print_request(http_request* request) {
+  if(request == NULL)
+    return;
+  printf(">>>>>>>>> REQUEST <<<<<<<<<\n");
+  if(request->URI != NULL && request->protocol != NULL)
+    printf("%s %s %s\n",
+        get_request_code(request->request_type),
+        request->URI,
+        request->protocol);
+  if(request->accept != NULL)
+    printf("Accept: %s\n", request->accept);
+  if(request->content_type != NULL) {
+    printf("Content-Type: %s\n", request->content_type);
+    printf("Content-Length: %d\n", (int) (request->content_length));
+  }
+  if(request->content != NULL)
+    printf(">>>>>>>>> [content] <<<<<<<<<\n%s\n", request->content);
+  printf(">>>>>>>>> END OF REQUEST <<<<<<<<<\n");
+  fflush(stdout);
+}
+
+static char* get_request_code(int request_code) {
+  switch(request_code) {
+  case HTTP_GET:
+    return "GET";
+  case HTTP_POST:
+    return "POST";
+  default:
+    return "";
+  }
+}
+
+void http_print_response(http_response* response) {
+  char* response_string;
+  if(response == NULL)
+    return;
+  response_string = malloc(1);
+  response_string[0] = '\0';
+  response_string = accumulate_response(response_string, response);
+  printf(">>>>>>>>> RESPONSE <<<<<<<<<\n");
+  printf("%s\n", response_string);
+  printf(">>>>>>>>> END OF RESPONSE <<<<<<<<<\n");
+  free(response_string);
+}
