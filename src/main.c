@@ -11,11 +11,11 @@
     " <head/>\n" \
     " <body>\n" \
     "  <h1>Leave your message:</h1>\n" \
-    "  <FORM action=\"/\" method=\"post\">\n" \
+    "  <FORM action=\"/\" enctype=\"multipart/form-data\" method=\"post\">\n" \
     "    Message: <INPUT type=\"text\" name=\"message\">\n" \
     "    <button>Send</button>\n" \
     "  </FORM>\n" \
-    "  <br>\n"
+    "  <br><h2>Messages:</h2><br>\n"
 
 #define RESPONSE_TRAILING_HTML \
     " </body>\n" \
@@ -23,17 +23,14 @@
 
 #define DUMMY_RESPONSE_HTML RESPONSE_LEADING_HTML RESPONSE_TRAILING_HTML
 
-#define DUMMY_RESPONSE_HEADERS \
-    "HTTP/1.1 200 OK\n" \
-    "Content-Type: text/html; charset=UTF-8\n" \
-    "Content-Length: 46\n" \
-    "\n"
-
-#define DUMMY_RESPONSE DUMMY_RESPONSE_HEADERS DUMMY_RESPONSE_HTML
+static char* messages;
 
 int main() {
     char *line = NULL;
     size_t lineLength = 0;
+    
+    messages = malloc(1);
+    messages[0] = '\0';
 
     tcpIp6Socket *socket = tcpIp6SocketCreate();
     bool httpHeaderEnd;
