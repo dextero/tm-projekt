@@ -286,19 +286,37 @@ static int streamReadNextLine(tcpStream *stream,
     stream->currPacketDataAlreadyRead += currentChunkLength;
     *outSize += currentChunkLength;
 
-    logInfo("dataLength %zu, alreadyRead %zu",
+    logInfo("currentChunkLength %zu, dataLength %zu, alreadyRead %zu",
+            currentChunkLength,
             ip6Header->dataLength,
             stream->currPacketDataAlreadyRead);
 
     if (isEndOfPacket) {
+        char buffer[65536] = { 0 };
+        snprintf(buffer, sizeof(buffer), "%s", lineStart);
+
+        /*logInfo("LINESTART -> LINEEND");*/
+        /*logInfo("%s", buffer);*/
+        /*logInfo("/LINESTART -> LINEEND");*/
+
         stringAppendPart(outLine, lineStart, lineEnd);
         stream->currPacketSeqNumber = getNextPacketSeqNumber(*stream->packets);
+        stream->currPacketDataAlreadyRead = 0;
+
+        /*logInfo("END OF PACKET");*/
+        /*logInfo("%s", *outLine);*/
+        /*logInfo("/END OF PACKET");*/
+
         free(*stream->packets);
         LIST_ERASE(&stream->packets);
-        stream->currPacketDataAlreadyRead = 0;
+
         return STREAM_WAITING_FOR_PACKET;
     } else {
         assert(*lineEnd == '\n');
+
+        /*logInfo("END OF LINE");*/
+        /*logInfo("%s", *outLine);*/
+        /*logInfo("/END OF LINE");*/
 
         stringAppendPart(outLine, lineStart, lineEnd + 1);
         stream->currPacketDataAlreadyRead += 1;
@@ -635,7 +653,7 @@ static void fillTcpHeader(void *packet,
     tcpHeader->base.destinationPort = sock->remotePort;
     tcpHeader->base.urgentPointer = 0;      /* TODO */
     tcpHeader->base.windowWidth = 43690;    /* TODO */
-    tcpHeader->base.checksum = 0;           /* TODO */
+    tcpHeader->base.checksum = 0;
     tcpHeader->base.sequenceNumber = sock->sequenceNumber;
     tcpHeader->base.ackNumber = (flags & TCP_FLAG_ACK)
             ? sock->stream.nextContiniousSeqNumber : 0;
