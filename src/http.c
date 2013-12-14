@@ -88,8 +88,11 @@ static bool protocol_name_invalid(char* token) {
 
 static int recv_next_lines(tcpIp6Socket* socket, http_request* request) {
   char* line;
-  size_t line_length; 
+  size_t line_length;
+  line = NULL;
   tcpIp6RecvLine(socket, &line, &line_length);
+  if(line == NULL)
+    return -1;
   if(line_crlf(line)) {
     if(request->request_type == HTTP_POST && request->content == NULL) {
       FREE_AND_RETURN(line, recv_msg_body(socket, request));
@@ -97,9 +100,7 @@ static int recv_next_lines(tcpIp6Socket* socket, http_request* request) {
       FREE_AND_RETURN(line, 0);
     }
   } else if(line_empty(line)) {
-    if(line != NULL)
-      free(line);
-    return 0;
+    FREE_AND_RETURN(line, -1);
   } else {
     if(fill_proper_request_field(line, request)) {
       FREE_AND_RETURN(line, -1);
@@ -113,22 +114,24 @@ static int recv_msg_body(tcpIp6Socket* socket, http_request* request) {
   char* line;
   char* line_content;
   size_t line_length;
-  tcpIp6RecvLine(socket, &line, &line_length);
-  if(line == NULL) {
-    return -1;
+  size_t to_receive;
+  size_t received;
+  line = NULL;
+  to_receive = request->content_length;
+  request->content = malloc(to_receive + 1);
+  received = 0;
+  while(received < to_receive) {
+    tcpIp6RecvLine(socket, &line, &line_length);
+    if(line == NULL)
+      return -1;
+    if(line_length > to_receive - received)
+      line_length = to_receive - received;
+    memcpy(request->content + received, line, line_length);
+    free(line);
+    received += line_length;
   }
-  line_content = strtok(line, "\n\r");
-  if(line_content == NULL) {
-    FREE_AND_RETURN(line, -1);
-  }
-  alloc_and_copy_string(&request->content, line_content);
-  free(line);
-  tcpIp6RecvLine(socket, &line, &line_length);
-  if(line_crlf(line)) {
-    FREE_AND_RETURN(line, 0);
-  } else {
-    FREE_AND_RETURN(line, -1);
-  }
+  request->content[to_receive] = '\0';
+  return 0;
 }
 
 static int fill_proper_request_field(char* line, http_request* request) {
