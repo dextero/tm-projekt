@@ -25,6 +25,10 @@
 
 static char* messages;
 
+void process_request(http_request* request) {
+
+}
+
 int main() {
     char *line = NULL;
     size_t lineLength = 0;
@@ -63,6 +67,7 @@ int main() {
         memset(request, 0, sizeof(http_request));
         http_recv_request(socket, request);
         http_print_request(request);
+        process_request(request);
         http_destroy_request_content(request);
         free(request);
 
