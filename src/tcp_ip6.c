@@ -427,7 +427,7 @@ static void fillClientSocket(tcpIp6Socket *sock,
 
     sock->stream.currPacketDataAlreadyRead = 0;
     sock->stream.nextContiniousSeqNumber = tcpHeader->base.sequenceNumber + 1;
-    sock->stream.currPacketSeqNumber = tcpHeader->base.sequenceNumber;
+    sock->stream.currPacketSeqNumber = tcpHeader->base.sequenceNumber + 1;
     LIST_CLEAR(&sock->stream.packets) {
         free(*sock->stream.packets);
     }
@@ -465,11 +465,8 @@ static int processPacket(tcpIp6Socket *sock,
         if (tcpGetFlag(tcpHeader, TCP_FLAG_FIN)) {
             sock->state = SOCK_STATE_TIME_WAIT;
             ++sock->sequenceNumber;
+            ++sock->stream.nextContiniousSeqNumber;
             savePacket = false;
-
-            /* hax? */
-            sock->stream.nextContiniousSeqNumber =
-                    tcpHeader->base.sequenceNumber;
 
             if (sendWithFlags(sock, TCP_FLAG_ACK, NULL, 0)) {
                 logInfo("sendWithFlags failed");
@@ -632,6 +629,7 @@ static void fillTcpHeader(void *packet,
                           uint32_t flags) {
     ip6PacketHeader *ip6Header = packetGetIp6Header(packet);
     tcpPacketHeader *tcpHeader = packetGetTcpHeader(packet);
+    uint32_t dataSize;
 
     tcpHeader->base.sourcePort = sock->localPort;
     tcpHeader->base.destinationPort = sock->remotePort;
@@ -649,9 +647,10 @@ static void fillTcpHeader(void *packet,
         ++sock->sequenceNumber;
     }
 
-    if (!(flags & TCP_FLAG_ACK)) {
-        sock->sequenceNumber += ntohs(ip6Header->dataLength)
-                                - tcpGetDataOffset(tcpHeader);
+    dataSize = ntohs(ip6Header->dataLength) - tcpGetDataOffset(tcpHeader);
+    if (dataSize > 0) {
+        logInfo("dataSize = %u", dataSize);
+        sock->sequenceNumber += dataSize;
     }
 
     tcpToNetworkByteOrder(tcpHeader);
@@ -753,6 +752,7 @@ int tcpIp6Accept(tcpIp6Socket *sock,
 
 static int closeConnection(tcpIp6Socket *sock) {
     logInfo("closing connection");
+
     if (sendWithFlags(sock, TCP_FLAG_FIN | TCP_FLAG_ACK, NULL, 0)) {
         logInfo("sendWithFlags failed");
         return -1;
