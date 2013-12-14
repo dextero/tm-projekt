@@ -114,7 +114,7 @@ int main() {
 
     int i;
     for (i = 0; i < 3; ++i) {
-        logInfo("waiting for a connection...");
+        logInfo("*** waiting for a connection... ***");
         if (tcpIp6Accept(socket, 4545)) {
             logInfo("tcpIp6Accept failed");
             return -1;
@@ -124,6 +124,10 @@ int main() {
         logInfo("received data:");
         
         /*
+
+        logInfo("*** connection accepted! ***");
+        logInfo("*** received data: ***");
+
         do {
             tcpIp6RecvLine(socket, &line, &lineLength);
             printf("> %s", line);
