@@ -8,6 +8,7 @@
 #define HTTP_POST 67
 #define HTTP_CODE_OK 200
 #define HTTP_CODE_NO_CONTENT 204
+#define HTTP_CODE_SEE_OTHER 303
 #define HTTP_CODE_BAD_REQUEST 400
 #define HTTP_CODE_FORBIDDEN 403
 #define HTTP_CODE_NOT_FOUND 404
@@ -29,6 +30,7 @@ typedef struct http_response {
   uint16_t code;
   char* date;
   char* server;
+  char* location;
   char* content_type;
   char* content;
 } http_response;

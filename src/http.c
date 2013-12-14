@@ -40,7 +40,7 @@ static int recv_first_line(tcpIp6Socket* socket, http_request* request) {
   }
   token = strtok(line, " ");
   request_type = get_request_type(token);
-  if(request == HTTP_INCORRECT_REQUEST) {
+  if(request_type == HTTP_INCORRECT_REQUEST) {
     FREE_AND_RETURN(line, -1);
   }
   request->request_type = request_type;
@@ -112,7 +112,6 @@ static int recv_next_lines(tcpIp6Socket* socket, http_request* request) {
 
 static int recv_msg_body(tcpIp6Socket* socket, http_request* request) {
   char* line;
-  char* line_content;
   size_t line_length;
   size_t to_receive;
   size_t received;
@@ -152,9 +151,9 @@ static int fill_proper_request_field(char* line, http_request* request) {
 static int
 fill_specified_request_field(char* key, char* value, http_request* request) {
   if(!strcmp(key, "Accept")) {
-    alloc_and_copy_string(&request->accept, value);
+    request->accept = strdup(value);
   } else if(!strcmp(key, "Content-Type")) {
-    alloc_and_copy_string(&request->content_type, value);
+    request->content_type = strdup(value);
   } else if(!strcmp(key, "Content-Length")) {
     request->content_length = (size_t) atoi(value);
   }
@@ -185,6 +184,8 @@ void http_destroy_response_content(http_response* response) {
     free(response->date);
   if(response->server != NULL)
     free(response->server);
+  if(response->location != NULL)
+    free(response->location);
   if(response->content_type != NULL)
     free(response->content_type);
   if(response->content != NULL)
@@ -208,10 +209,10 @@ int http_recv_request(tcpIp6Socket* socket, http_request* request) {
 void http_init_response(http_response* response) {
   time_t current_time;
   memset((void*) response, (uint8_t) 0, sizeof(http_response));
-  alloc_and_copy_string(&response->protocol, "HTTP/1.1");
-  alloc_and_copy_string(&response->server, "Pawlicki-Radomski uber application serv ftw.");
+  response->protocol = strdup("HTTP/1.1");
+  response->server = strdup("Pawlicki-Radomski uber application serv ftw.");
   time(&current_time);
-  alloc_and_copy_string(&response->date, (char*) ctime(&current_time));
+  response->date = strdup((char*) ctime(&current_time));
   response->date[strlen(response->date) - 1] = '\0';
 }
 
@@ -245,6 +246,9 @@ static char* accumulate_response(char* accumulator, http_response* response) {
     accumulator = accumulate_key_val(accumulator, "Date",  response->date);
   if(response->server != NULL)
     accumulator = accumulate_key_val(accumulator, "Server",  response->server);
+  if(response->location != NULL)
+    accumulator = accumulate_key_val(
+        accumulator, "Location", response->location);
   if(response->content_type != NULL)
     accumulator = accumulate_key_val(
         accumulator, "Content-Type",  response->content_type);
@@ -279,6 +283,8 @@ static char* get_code_description(uint16_t code) {
       return "OK";
     case HTTP_CODE_NO_CONTENT:
       return "No content";
+    case HTTP_CODE_SEE_OTHER:
+      return "See Other";
     case HTTP_CODE_BAD_REQUEST:
       return "Bad request";
     case HTTP_CODE_FORBIDDEN:
