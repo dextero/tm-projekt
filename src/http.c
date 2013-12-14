@@ -235,6 +235,7 @@ static int is_response_incorrect(http_response* response) {
       response->protocol == NULL ||
       (response->code != HTTP_CODE_OK &&
           response->code != HTTP_CODE_NO_CONTENT &&
+          response->code != HTTP_CODE_SEE_OTHER &&
           response->code != HTTP_CODE_BAD_REQUEST &&
           response->code != HTTP_CODE_FORBIDDEN &&
           response->code != HTTP_CODE_NOT_FOUND);
