@@ -111,24 +111,10 @@ static int recv_next_lines(tcpIp6Socket* socket, http_request* request) {
 }
 
 static int recv_msg_body(tcpIp6Socket* socket, http_request* request) {
-  char* line;
-  size_t line_length;
-  size_t to_receive;
-  size_t received;
-  line = NULL;
-  to_receive = request->content_length;
+  size_t to_receive = request->content_length;
   request->content = malloc(to_receive + 1);
-  received = 0;
-  while(received < to_receive) {
-    tcpIp6RecvLine(socket, &line, &line_length);
-    if(line == NULL)
-      return -1;
-    if(line_length > to_receive - received)
-      line_length = to_receive - received;
-    memcpy(request->content + received, line, line_length);
-    free(line);
-    received += line_length;
-  }
+  if (tcpIp6Recv(socket, request->content, to_receive))
+    return -1;
   request->content[to_receive] = '\0';
   return 0;
 }
