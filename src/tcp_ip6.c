@@ -477,7 +477,10 @@ static int processPacket(tcpIp6Socket *sock,
         break;
     case SOCK_STATE_LAST_ACK:
         logInfo("connection terminated by remote host");
-        savePacket = false;
+        if (tcpGetFlag(tcpHeader, TCP_FLAG_ACK)) {
+            sock->state = SOCK_STATE_CLOSED;
+        }
+        savePacket = true;
         break;
     case SOCK_STATE_FIN_WAIT_1:
         if (tcpGetFlag(tcpHeader, TCP_FLAG_FIN)) {
@@ -812,14 +815,15 @@ void tcpIp6Close(tcpIp6Socket *sock) {
 int tcpIp6Recv(tcpIp6Socket *sock,
                void *buffer,
                size_t bufferSize) {
-    if (sock->state != SOCK_STATE_ESTABLISHED) {
-        logInfo("invalid socket state: %d", sock->state);
-        return -1;
-    }
-
     while (bufferSize > 0) {
-        ssize_t bytesRead = streamReadNextPacket(&sock->stream,
-                                                 buffer, bufferSize);
+        ssize_t bytesRead;
+
+        if (sock->state != SOCK_STATE_ESTABLISHED) {
+            logInfo("invalid socket state: %d", sock->state);
+            return -1;
+        }
+
+        bytesRead = streamReadNextPacket(&sock->stream, buffer, bufferSize);
 
         switch (bytesRead) {
         case STREAM_ERROR:
@@ -846,14 +850,15 @@ int tcpIp6RecvLine(tcpIp6Socket *sock,
     *outLine = NULL;
     *outSize = 0;
 
-    if (sock->state != SOCK_STATE_ESTABLISHED) {
-        logInfo("invalid socket state: %d", sock->state);
-        return -1;
-    }
-
     while (true) {
-        ssize_t bytesRead = streamReadNextLine(&sock->stream,
-                                               outLine, outSize);
+        ssize_t bytesRead;
+
+        if (sock->state != SOCK_STATE_ESTABLISHED) {
+            logInfo("invalid socket state: %d", sock->state);
+            return -1;
+        }
+
+        bytesRead = streamReadNextLine(&sock->stream, outLine, outSize);
 
         switch (bytesRead) {
         case STREAM_ERROR:

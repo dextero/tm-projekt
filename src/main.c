@@ -113,7 +113,7 @@ int main() {
     bool httpHeaderEnd;
 
     int i;
-    for (i = 0; i < 3; ++i) {
+        while (true) {
         logInfo("*** waiting for a connection... ***");
         if (tcpIp6Accept(socket, 4545)) {
             logInfo("tcpIp6Accept failed");
