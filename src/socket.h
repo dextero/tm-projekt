@@ -5,12 +5,23 @@
 
 #include "tcp_ip6.h"
 
-typedef struct tcpIp6Socket tcpIp6Socket;
+tcpIp6Socket *socketCreate(void);
+void socketRelease(tcpIp6Socket *sock);
 
-tcpIp6Socket *socketTryAccept(uint16_t port);
-void socketClose(tcpIp6Socket *socket);
+int socketAccept(tcpIp6Socket *sock,
+                 uint16_t port);
+void socketClose(tcpIp6Socket *sock);
 
-int socketRecv(tcpIp6Socket *socket, char *buffer, size_t bufferSize);
-int socketRecvLine(tcpIp6Socket *socket, char **outBuffer, size_t *outSize);
+int socketRecvLine(tcpIp6Socket *sock,
+                   char **outLine,
+                   size_t *outSize);
+int socketRecv(tcpIp6Socket *sock,
+               void *buffer,
+               size_t bufferSize);
+
+int socketSend(tcpIp6Socket *sock,
+               void *data,
+               size_t data_size);
+
 
 #endif /* MIKRO_PROJEKT_SOCKET_H */

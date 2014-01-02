@@ -5,6 +5,7 @@
 
 #define ETHERTYPE_IPv6 0x86DD
 #define HEADER_TYPE_TCP 6
+#define HEADER_TYPE_ICMPv6 58
 
 typedef uint16_t ip6Address[8];
 
@@ -35,7 +36,8 @@ void ip6SetFlowLabel(ip6PacketHeader *header,
 
 #ifdef _DEBUG
 void ip6DebugPrintAddress(const char *label,
-                          const ip6Address addr);
+                          const ip6Address addr,
+                          bool isNetworkByteOrder);
 
 void ip6DebugPrint(const ip6PacketHeader *header);
 #else

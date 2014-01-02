@@ -6,6 +6,7 @@
 #include "http.h"
 #include "tcp_ip6.h"
 #include "utils.h"
+#include "socket.h"
 
 #define FREE_AND_RETURN(line, i) { free(line); return (i); }
 
@@ -32,7 +33,7 @@ static int recv_first_line(tcpIp6Socket* socket, http_request* request) {
   char request_type;
   line = NULL;
   line_length = 0;
-  tcpIp6RecvLine(socket, &line, &line_length);
+  socketRecvLine(socket, &line, &line_length);
   if(line == NULL)
     return -1;
   if(line_empty(line)) {
@@ -90,7 +91,7 @@ static int recv_next_lines(tcpIp6Socket* socket, http_request* request) {
   char* line;
   size_t line_length;
   line = NULL;
-  tcpIp6RecvLine(socket, &line, &line_length);
+  socketRecvLine(socket, &line, &line_length);
   if(line == NULL)
     return -1;
   if(line_crlf(line)) {
@@ -113,7 +114,7 @@ static int recv_next_lines(tcpIp6Socket* socket, http_request* request) {
 static int recv_msg_body(tcpIp6Socket* socket, http_request* request) {
   size_t to_receive = request->content_length;
   request->content = malloc(to_receive + 1);
-  if (tcpIp6Recv(socket, request->content, to_receive))
+  if (socketRecv(socket, request->content, to_receive))
     return -1;
   request->content[to_receive] = '\0';
   return 0;
@@ -210,7 +211,7 @@ int http_send_response(tcpIp6Socket* socket, http_response* response) {
   accumulator = malloc(1);
   accumulator[0] = '\0';
   accumulator = accumulate_response(accumulator, response);
-  result = tcpIp6Send(socket, accumulator, strlen(accumulator));
+  result = socketSend(socket, accumulator, strlen(accumulator));
   free(accumulator);
   return result;
 }

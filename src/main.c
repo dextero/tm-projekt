@@ -5,6 +5,7 @@
 #include "http.h"
 #include "tcp_ip6.h"
 #include "utils.h"
+#include "socket.h"
 
 #define RESPONSE_LEADING_HTML \
     "<html>\n" \
@@ -103,44 +104,24 @@ static void send_see_other(tcpIp6Socket* socket) {
 }
 
 int main() {
-    char *line = NULL;
-    size_t lineLength = 0;
+    tcpIp6Socket *socket = socketCreate();
     
     messages = malloc(1);
     messages[0] = '\0';
 
-    tcpIp6Socket *socket = tcpIp6SocketCreate();
-    bool httpHeaderEnd;
+    while (true) {
+        http_request* request = NULL;
 
-    int i;
-        while (true) {
         logInfo("*** waiting for a connection... ***");
-        if (tcpIp6Accept(socket, 4545)) {
-            logInfo("tcpIp6Accept failed");
+        if (socketAccept(socket, 4545)) {
+            logInfo("socketAccept failed");
             return -1;
         }
 
         logInfo("connection accepted!");
         logInfo("received data:");
         
-        /*
-
-        logInfo("*** connection accepted! ***");
-        logInfo("*** received data: ***");
-
-        do {
-            tcpIp6RecvLine(socket, &line, &lineLength);
-            printf("> %s", line);
-
-            httpHeaderEnd = !line
-                    || line[0] == '\n'
-                    || (line[0] == '\r' && line[1] == '\n');
-
-            free(line);
-            line = NULL;
-        } while (!httpHeaderEnd);
-        */
-        http_request* request = malloc(sizeof(http_request));
+        request = malloc(sizeof(http_request));
         memset(request, 0, sizeof(http_request));
         http_recv_request(socket, request);
         http_print_request(request);
@@ -148,16 +129,11 @@ int main() {
         http_destroy_request_content(request);
         free(request);
 
-        logInfo("seding HTTP 200...");
-        // tcpIp6Send(socket, DUMMY_RESPONSE, sizeof(DUMMY_RESPONSE) - 1);
-
-
-
         logInfo("response sent!");
 
-        tcpIp6Close(socket);
+        socketClose(socket);
     }
 
-    tcpIp6SocketRelease(socket);
+    socketRelease(socket);
     return 0;
 }

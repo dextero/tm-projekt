@@ -49,8 +49,11 @@ static void my_free(void *p) {
 
 #define LIST_SIZE(list) list_size__(list)
 
+#define LIST_NEXT_PTR(elem_ptr) \
+    ((TYPE(elem_ptr)*)(((char*)(elem_ptr)) - EXTRA_SPACE))
+
 #define LIST_NEXT(elem_ptr) \
-    (*((TYPE(elem_ptr)*)(((char*)elem_ptr) - EXTRA_SPACE)))
+    (*LIST_NEXT_PTR(elem_ptr))
 
 #define LIST_FOREACH(elem_ptr, list) \
     for ((elem_ptr) = (list); (elem_ptr); (elem_ptr) = LIST_NEXT(elem_ptr))
@@ -58,7 +61,7 @@ static void my_free(void *p) {
 #define LIST_FOREACH_PTR(elem_pptr, list_ptr) \
     for ((elem_pptr) = (list_ptr); \
          *(elem_pptr); \
-         (elem_pptr) = (TYPE(*elem_pptr))((char*)(*(elem_pptr)) - EXTRA_SPACE))
+         (elem_pptr) = ((TYPE(elem_pptr))(((char*)(*(elem_pptr))) - EXTRA_SPACE)))
 
 #define LIST_LAST_PTR(list_ptr) \
     ((TYPE(list_ptr)*)list_last_ptr__((void**)list_ptr))
@@ -73,7 +76,7 @@ static void my_free(void *p) {
     (type*)LIST_NEW_BUFFER(sizeof(type))
 
 #define LIST_INSERT(next_pptr, elem_ptr) \
-    ((*(TYPE(*(elem_ptr))*)((char*)(elem_ptr) - EXTRA_SPACE) = *(next_pptr)), \
+    ((*LIST_NEXT_PTR(elem_ptr) = *(next_pptr)), \
      (*(next_pptr) = (elem_ptr)))
 
 #define LIST_INSERT_NEW(next_pptr, type) \
