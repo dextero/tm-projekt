@@ -21,6 +21,9 @@ typedef struct ip6PacketHeader {
 #pragma pack()
 
 
+int ip6AddressForInterface(const char *interface,
+                           ip6Address *outAddress);
+
 uint32_t ip6GetVersion(const ip6PacketHeader *header);
 uint32_t ip6GetTrafficClass(const ip6PacketHeader *header);
 uint32_t ip6GetFlowLabel(const ip6PacketHeader *header);

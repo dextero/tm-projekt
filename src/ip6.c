@@ -4,6 +4,46 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <sys/types.h>
+#include <ifaddrs.h>
+#include <netinet/in.h>
+
+
+int ip6AddressForInterface(const char *interface,
+                           ip6Address *outAddress) {
+    struct ifaddrs *addr;
+
+    if (getifaddrs(&addr)) {
+        return -1;
+    }
+
+    while (addr) {
+        if (!strcmp(interface, addr->ifa_name)) {
+            if (((struct sockaddr_in6*)addr->ifa_addr)->sin6_family == AF_INET6) {
+                unsigned char *ip =
+                        ((struct sockaddr_in6*)addr->ifa_addr)->sin6_addr.s6_addr;
+
+                if (ip[0] != 0xfe || ip[1] != 0x80) {
+                    size_t i;
+
+                    for (i = 0; i < 8; ++i) {
+                        (*outAddress)[i] = (ip[2 * i] << 8) | ip[2 * i + 1];
+                    }
+
+                    ip6DebugPrintAddress("found IPv6: ", *outAddress, false);
+                    logInfo(" for interface %s", interface);
+                    return 0;
+                }
+            }
+        }
+
+        addr = addr->ifa_next;
+    }
+
+    logInfo("interface %s has no non-link-layer IPv6");
+    return -1;
+}
+
 uint32_t ip6GetVersion(const ip6PacketHeader *header) {
     return (header->versionTrafficClassFlowLabel >> 28) & 0xF;
 }

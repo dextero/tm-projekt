@@ -103,8 +103,15 @@ static void send_see_other(tcpIp6Socket* socket) {
   http_destroy_response_content(&response);
 }
 
-int main() {
+int main(int argc, char **argv) {
     tcpIp6Socket *socket = socketCreate();
+    const char *interface = "lo";
+
+    if (argc > 1) {
+        interface = argv[1];
+    }
+
+    logInfo("*** using interface: %s ***", interface);
     
     messages = malloc(1);
     messages[0] = '\0';
@@ -113,7 +120,7 @@ int main() {
         http_request* request = NULL;
 
         logInfo("*** waiting for a connection... ***");
-        if (socketAccept(socket, 4545)) {
+        if (socketAccept(socket, interface, 4545)) {
             logInfo("socketAccept failed");
             return -1;
         }

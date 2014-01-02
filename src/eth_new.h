@@ -25,7 +25,7 @@ typedef struct eth_frame {
 } eth_frame;
 #pragma pack()
 
-void eth_socket_init(eth_socket* ethsock);
+void eth_socket_init(eth_socket* ethsock, const char *interface);
 
 void bind_fd_to_mac(int sockfd, mac_address* mac, eth_socket* ethsock);
 int eth_send(eth_socket* ethsock, mac_address* dest, uint16_t ethertype,

@@ -9,10 +9,15 @@
 
 static int is_addressed_to_me(mac_address* my_mac, mac_address* dest_mac);
 
-void eth_socket_init(eth_socket* ethsock) {
+void eth_socket_init(eth_socket* ethsock, const char *interface) {
     mac_address mac;
-    /* TODO: zmienic to "lo" */
-    int sockfd = open_raw_socket("lo", &mac);
+    char interface_name[64];
+    int sockfd;
+    
+    strncpy(interface_name, interface, sizeof(interface_name));
+    interface_name[sizeof(interface_name) - 1] = '\0';
+
+    sockfd = open_raw_socket(interface_name, &mac);
     bind_fd_to_mac(sockfd, &mac, ethsock);
 }
 

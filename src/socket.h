@@ -9,6 +9,7 @@ tcpIp6Socket *socketCreate(void);
 void socketRelease(tcpIp6Socket *sock);
 
 int socketAccept(tcpIp6Socket *sock,
+                 const char *interface,
                  uint16_t port);
 void socketClose(tcpIp6Socket *sock);
 
