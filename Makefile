@@ -6,11 +6,11 @@ INTERMEDIATE_DIR_DEBUG=obj/debug
 INTERMEDIATE_DIR_PREPROCESSED=obj/preprocessed
 OUTPUT_DIR=bin
 
-CC=gcc
+CC=clang
 DEBUG_MACROS=-D_DEBUG
 RELEASE_MACROS=
-MACROS=
-CCFLAGS=-pedantic -Wall -Wextra $(MACROS)
+MACROS=-DHAVE_TYPEOF
+CCFLAGS=-pedantic -Wall -Wextra $(MACROS) -Wno-language-extension-token
 LIBDIRS=
 LIBS=
 INCLUDES=-I$(SOURCE_DIR)

@@ -264,7 +264,7 @@ static int streamGetNextPacket(tcpStream *stream)
     tcpPacketHeader *tcpHeader;
     ip6PacketHeader *ip6Header;
 
-    logInfo("streamGetNextPacket: %u", stream->currPacketSeqNumber);
+    /*logInfo("streamGetNextPacket: %u", stream->currPacketSeqNumber);*/
 
     while (stream->packets) {
         uint32_t seqNum;
@@ -284,6 +284,13 @@ static int streamGetNextPacket(tcpStream *stream)
             logInfo("skip: %u (%s)", seqNum,
                     unreadDataSize == 0 ? "no more data"
                                         : "sequence number too small");
+
+            stream->currPacketSeqNumber =
+                    getNextPacketSeqNumber(*stream->packets);
+            stream->currPacketDataAlreadyRead = 0;
+
+            logInfo("currPacketSeqNumber = %u", stream->currPacketSeqNumber);
+
             free(*stream->packets);
             LIST_ERASE(&stream->packets);
         }
@@ -311,6 +318,8 @@ ssize_t tcpStreamReadNextPacket(tcpStream *stream,
     size_t bytesRemaining;
     size_t bytesToCopy;
 
+    /*logInfo("tcpStreamReadNextPacket");*/
+
     if (streamGetNextPacket(stream)) {
         return STREAM_WAITING_FOR_PACKET;
     }
@@ -329,18 +338,11 @@ ssize_t tcpStreamReadNextPacket(tcpStream *stream,
     buffer = (char*)buffer + bytesToCopy;
     bufferSize -= bytesToCopy;
 
-    /*logInfo("%zu bytes read, %zu remaining\n"
-            "dataLength %zu, alreadyRead %zu",
-            bytesToCopy, bufferSize,
-            ip6Header->dataLength,
-            stream->currPacketDataAlreadyRead);*/
-
-    if (bytesRemaining == bytesToCopy) {
-        stream->currPacketSeqNumber = getNextPacketSeqNumber(*stream->packets);
-        stream->currPacketDataAlreadyRead = 0;
-        free(*stream->packets);
-        LIST_ERASE(&stream->packets);
-    }
+    /*logInfo("%zu bytes read, %zu remaining\n"*/
+            /*"dataLength %zu, alreadyRead %zu",*/
+            /*bytesToCopy, bufferSize,*/
+            /*ip6Header->dataLength - sizeof(tcpPacketHeaderBase),*/
+            /*stream->currPacketDataAlreadyRead);*/
 
     return bytesToCopy;
 }
@@ -354,6 +356,8 @@ int tcpStreamReadNextLine(tcpStream *stream,
     char *lineStart;
     char *lineEnd;
     bool isEndOfPacket = false;
+
+    /*logInfo("tcpStreamReadNextLine");*/
 
     if (streamGetNextPacket(stream)) {
         return STREAM_WAITING_FOR_PACKET;
@@ -377,10 +381,13 @@ int tcpStreamReadNextLine(tcpStream *stream,
     stream->currPacketDataAlreadyRead += currentChunkLength;
     *outSize += currentChunkLength;
 
-    logInfo("currentChunkLength %zu, dataLength %zu, alreadyRead %zu",
-            currentChunkLength,
-            ip6Header->dataLength,
-            stream->currPacketDataAlreadyRead);
+    /*logInfo("currentChunkLength %zu, dataLength %zu, alreadyRead %zu",*/
+            /*currentChunkLength,*/
+            /*ip6Header->dataLength - sizeof(tcpPacketHeaderBase),*/
+            /*stream->currPacketDataAlreadyRead);*/
+
+    /*printPacketInfo("READING: ", *stream->packets, true);*/
+    /*logInfo("end of packet? %s", isEndOfPacket ? "yes" : "no");*/
 
     if (isEndOfPacket) {
         char buffer[65536] = { 0 };
@@ -391,26 +398,21 @@ int tcpStreamReadNextLine(tcpStream *stream,
         /*logInfo("/LINESTART -> LINEEND");*/
 
         stringAppendPart(outLine, lineStart, lineEnd);
-        stream->currPacketSeqNumber = getNextPacketSeqNumber(*stream->packets);
-        stream->currPacketDataAlreadyRead = 0;
 
         /*logInfo("END OF PACKET");*/
         /*logInfo("%s", *outLine);*/
         /*logInfo("/END OF PACKET");*/
 
-        free(*stream->packets);
-        LIST_ERASE(&stream->packets);
-
         return STREAM_WAITING_FOR_PACKET;
     } else {
         assert(*lineEnd == '\n');
 
+        stringAppendPart(outLine, lineStart, lineEnd + 1);
+        stream->currPacketDataAlreadyRead += 1;
+
         /*logInfo("END OF LINE");*/
         /*logInfo("%s", *outLine);*/
         /*logInfo("/END OF LINE");*/
-
-        stringAppendPart(outLine, lineStart, lineEnd + 1);
-        stream->currPacketDataAlreadyRead += 1;
     }
 
     return lineEnd - lineStart;
@@ -584,7 +586,6 @@ static int processPacket(tcpIp6Socket *sock,
         if (tcpGetFlag(tcpHeader, TCP_FLAG_ACK)) {
             sock->state = SOCK_STATE_CLOSED;
         }
-        savePacket = true;
         break;
     case SOCK_STATE_FIN_WAIT_1:
         if (tcpGetFlag(tcpHeader, TCP_FLAG_FIN)) {
@@ -1074,8 +1075,8 @@ int arpQuery(tcpIp6Socket *sock, const ip6Address ip, mac_address *outMac) {
             return 0;
         }
 
-        /*ip6PrintAddress("still waiting for advertisement for ", ip, false);*/
-        /*logInfo("");*/
+        ip6PrintAddress("still waiting for advertisement for ", ip, false);
+        logInfo("");
 
         if (icmp6SendSolicit(sock, ip)) {
             logInfo("icmp6SendSolicit() failed");

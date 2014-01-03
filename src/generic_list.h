@@ -12,7 +12,7 @@
     })
 
 #ifdef HAVE_TYPEOF
-#   define TYPE(var) typeof(var)*
+#   define TYPE(var) typeof(var)
 #else
 #   define TYPE(var) void*
 #endif /* HAVE_TYPEOF */
@@ -23,6 +23,9 @@ void list_erase__(void **list_ptr);
 size_t list_size__(void *list);
 
 #ifdef OMG_MEMORY_CORRUPTION
+
+#include "utils.h"
+
 static void *my_malloc(size_t size) {
     void *ret = malloc(size);
     logInfo("*** MALLOC %p", ret);
@@ -61,16 +64,16 @@ static void my_free(void *p) {
 #define LIST_FOREACH_PTR(elem_pptr, list_ptr) \
     for ((elem_pptr) = (list_ptr); \
          *(elem_pptr); \
-         (elem_pptr) = ((TYPE(elem_pptr))(((char*)(*(elem_pptr))) - EXTRA_SPACE)))
+         (elem_pptr) = LIST_NEXT_PTR(*(elem_pptr)))
 
 #define LIST_LAST_PTR(list_ptr) \
-    ((TYPE(list_ptr)*)list_last_ptr__((void**)list_ptr))
+    ((TYPE(*(list_ptr))*)list_last_ptr__((void**)list_ptr))
 
 #define LIST_LAST(list) \
-    ((TYPE(list)*)(list_last__((void*)list)))
+    ((TYPE(list))(list_last__((void*)list)))
 
 #define LIST_NEW_BUFFER(size) \
-    ((char*)calloc(1, (size) + EXTRA_SPACE) + EXTRA_SPACE)
+    (((char*)calloc(1, (size) + EXTRA_SPACE)) + EXTRA_SPACE)
 
 #define LIST_NEW_ELEMENT(type) \
     (type*)LIST_NEW_BUFFER(sizeof(type))
