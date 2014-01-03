@@ -10,32 +10,35 @@
 #include "generic_list.h"
 #include "ip6.h"
 #include "tcp.h"
+#include "socket.h"
 
 #pragma pack(1)
+typedef struct icmp6Option {
+    uint8_t type;
+    uint8_t length; /* 8-byte chunks */
+    uint8_t data[6];
+} icmp6Option;
+
 typedef struct icmp6Packet {
     uint8_t type;
     uint8_t code;
     uint16_t checksum;
     uint32_t flags;
-    union {
-        struct {
-            ip6Address targetAddress;
-        } nbrSolicit;
-        struct {
-            ip6Address targetAddress;
-        } nbrAdvertise;
-    } body;
+    ip6Address targetAddress;
+    icmp6Option option;
 } icmp6Packet;
 #pragma pack()
 
 typedef enum icmp6Flags {
-    ICMP6_FLAG_ROUTER    = (1 << 15),
-    ICMP6_FLAG_SOLICITED = (1 << 14),
-    ICMP6_FLAG_OVERRIDE  = (1 << 13)
+    ICMP6_FLAG_ROUTER    = (1 << 31),
+    ICMP6_FLAG_SOLICITED = (1 << 30),
+    ICMP6_FLAG_OVERRIDE  = (1 << 29)
 } icmp6Flags;
 
 #define ICMP6_TYPE_NEIGHBOR_SOLICIT 135
 #define ICMP6_TYPE_NEIGHBOR_ADVERTISE 136
+
+#define ICMP6_OPTION_TARGET_MAC 2
 
 typedef struct tcpStream {
     LIST(void*) packets;
@@ -86,8 +89,9 @@ static int sendWithFlags(tcpIp6Socket *sock,
                          size_t data_size);
 
 int icmp6Interpret(void *packet,
-                   tcpIp6Socket *sock,
-                   mac_address *source);
+                   tcpIp6Socket *sock);
+
+void socketReset(tcpIp6Socket *sock);
 
 int arpQuery(tcpIp6Socket *sock, const ip6Address ip, mac_address *outMac);
 
@@ -108,9 +112,8 @@ static void icmp6ToNetworkByteOrder(icmp6Packet *icmp) {
     size_t i;
 
     icmp->flags = htonl(icmp->flags);
-    for (i = 0; i < ARRAY_SIZE(icmp->body.nbrSolicit.targetAddress); ++i) {
-        icmp->body.nbrSolicit.targetAddress[i] =
-                htons(icmp->body.nbrSolicit.targetAddress[i]);
+    for (i = 0; i < ARRAY_SIZE(icmp->targetAddress); ++i) {
+        icmp->targetAddress[i] = htons(icmp->targetAddress[i]);
     }
 }
 
@@ -206,7 +209,7 @@ static void printIcmp6PacketInfo(const char *header,
     size_t payloadSize = ip6Header->dataLength;
     size_t packetSize;
     uint32_t flags = icmp->flags;
-    
+
     if (isNetworkByteOrder) {
         payloadSize = htons(payloadSize);
         flags = htonl(flags);
@@ -234,8 +237,7 @@ static void printIcmp6PacketInfo(const char *header,
                      (icmp->flags & ICMP6_FLAG_OVERRIDE) ? 'O' : ' ');
     ip6DebugPrintAddress("", ip6Header->source, isNetworkByteOrder);
     ip6DebugPrintAddress(" -> ", ip6Header->destination, isNetworkByteOrder);
-    ip6DebugPrintAddress("; target: ", icmp->body.nbrSolicit.targetAddress,
-                         isNetworkByteOrder);
+    ip6DebugPrintAddress("; target: ", icmp->targetAddress, isNetworkByteOrder);
     logInfo(", %luB data", packetSize);
 }
 
@@ -423,11 +425,10 @@ static int recvNextPacket(tcpIp6Socket *sock, void **outPacket) {
 
     while (true) {
         uint16_t ethertype;
-        mac_address source;
         size_t bytesRead;
 
         /* odbierz kolejny pakiet */
-        if (eth_recv(&sock->ethSocket, &source, &ethertype,
+        if (eth_recv(&sock->ethSocket, &ethertype,
                      (uint8_t*)*outPacket, &bytesRead)) {
             logInfo("eth_recv failed");
             continue;
@@ -447,7 +448,7 @@ static int recvNextPacket(tcpIp6Socket *sock, void **outPacket) {
                 icmp6ToHostByteOrder(packetGetIcmp6Data(*outPacket));
                 printIcmp6PacketInfo("RECV", *outPacket, false);
 
-                if (icmp6Interpret(*outPacket, sock, &source)) {
+                if (icmp6Interpret(*outPacket, sock)) {
                     logInfo("icmp6Interpret failed");
                 }
                 break;
@@ -553,6 +554,11 @@ static int processPacket(tcpIp6Socket *sock,
                          void *packet) {
     tcpPacketHeader *tcpHeader = packetGetTcpHeader(packet);
     bool savePacket = true;
+
+    if (tcpGetFlag(tcpHeader, TCP_FLAG_RST)) {
+        socketReset(sock);
+        return 0;
+    }
 
     switch (sock->state) {
     case SOCK_STATE_SYN_RECEIVED:
@@ -911,10 +917,8 @@ static int closeConnection(tcpIp6Socket *sock) {
     return 0;
 }
 
-void socketClose(tcpIp6Socket *sock) {
+void socketReset(tcpIp6Socket *sock) {
     tcpIp6Socket **curr;
-
-    closeConnection(sock);
 
     LIST_FOREACH_PTR(curr, &allTcpSockets) {
         if (*curr == sock) {
@@ -925,6 +929,13 @@ void socketClose(tcpIp6Socket *sock) {
             return;
         }
     }
+
+    sock->state = SOCK_STATE_CLOSED;
+}
+
+void socketClose(tcpIp6Socket *sock) {
+    closeConnection(sock);
+    socketReset(sock);
 }
 
 
@@ -1004,13 +1015,23 @@ LIST(ipMacPair) arpTable = NULL;
 ipMacPair *arpFind(const ip6Address ip, mac_address *mac) {
     ipMacPair *pair;
 
+    ip6DebugPrintAddress("searching ARP table for ", ip, false);
+    logInfo("");
+
+    logInfo("%lu entries total", LIST_SIZE(arpTable));
+
     LIST_FOREACH(pair, arpTable) {
+        ip6DebugPrintAddress("checking ", pair->ip, false);
+        logInfo("");
+
         if ((!ip || !memcmp(ip, pair->ip, sizeof(ip6Address)))
                 && (!mac || !memcmp(mac, &pair->mac, sizeof(mac_address)))) {
+            logInfo("that's it!");
             return pair;
         }
     }
 
+    logInfo("nothing found :(");
     return NULL;
 }
 
@@ -1018,12 +1039,23 @@ void arpAdd(const ip6Address ip, const mac_address mac) {
     ipMacPair *ipMac = arpFind(ip, NULL);
     
     if (!ipMac) {
+        logInfo("new ARP table entry!");
         ipMac = LIST_NEW_ELEMENT(ipMacPair);
         LIST_APPEND(&arpTable, ipMac);
+    } else {
+        ip6DebugPrintAddress("ARP table: updating ", ipMac->ip, false);
+        logInfo(" with MAC %x:%x:%x:%x:%x:%x",
+                ipMac->mac.bytes[0], ipMac->mac.bytes[1], ipMac->mac.bytes[2],
+                ipMac->mac.bytes[3], ipMac->mac.bytes[4], ipMac->mac.bytes[5]);
     }
 
     memcpy(ipMac->ip, ip, sizeof(ip6Address));
     memcpy(&ipMac->mac, &mac, sizeof(mac_address));
+
+    ip6DebugPrintAddress("ARP table: adding ", ipMac->ip, false);
+    logInfo(" with MAC %x:%x:%x:%x:%x:%x",
+            ipMac->mac.bytes[0], ipMac->mac.bytes[1], ipMac->mac.bytes[2],
+            ipMac->mac.bytes[3], ipMac->mac.bytes[4], ipMac->mac.bytes[5]);
 }
 
 static int icmp6SendSolicit(tcpIp6Socket *sock,
@@ -1032,7 +1064,6 @@ static int icmp6SendSolicit(tcpIp6Socket *sock,
 int arpQuery(tcpIp6Socket *sock, const ip6Address ip, mac_address *outMac) {
     while (true) {
         ipMacPair *ipMac = arpFind(ip, NULL);
-        size_t i;
 
         if (ipMac) {
             memcpy(outMac, &ipMac->mac, sizeof(mac_address));
@@ -1043,7 +1074,7 @@ int arpQuery(tcpIp6Socket *sock, const ip6Address ip, mac_address *outMac) {
             return 0;
         }
 
-        ip6DebugPrintAddress("still waiting for advertisement for", ip, false);
+        ip6DebugPrintAddress("still waiting for advertisement for ", ip, false);
         logInfo("");
 
         if (icmp6SendSolicit(sock, ip)) {
@@ -1051,11 +1082,9 @@ int arpQuery(tcpIp6Socket *sock, const ip6Address ip, mac_address *outMac) {
             return -1;
         }
 
-        for (i = 0; i < 3; ++i) {
-            if (processNextPacket(sock)) {
-                logInfo("processNextPacket() failed");
-                return -1;
-            }
+        if (processNextPacket(sock)) {
+            logInfo("processNextPacket() failed");
+            return -1;
         }
     }
 
@@ -1066,6 +1095,7 @@ const ip6Address IPv6_ALL_LINK_LOCAL = { 0xff, 0x02, 0, 0, 0, 0, 0, 1 };
 mac_address MAC_BROADCAST = { { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff } };
 
 static int icmp6Send(tcpIp6Socket *sock,
+                     mac_address *remote_mac,
                      int type,
                      int flags,
                      const ip6Address remoteIp,
@@ -1079,15 +1109,16 @@ static int icmp6Send(tcpIp6Socket *sock,
     packet->type = type;
     packet->code = 0;
     packet->flags = flags;
-
-    memcpy(packet->body.nbrAdvertise.targetAddress, targetIp,
-           sizeof(ip6Address));
+    packet->option.type = ICMP6_OPTION_TARGET_MAC;
+    packet->option.length = 1;
+    memcpy(packet->option.data, &sock->ethSocket.mac, sizeof(mac_address));
+    memcpy(packet->targetAddress, targetIp, sizeof(ip6Address));
 
     icmp6ToNetworkByteOrder(packet);
     printIcmp6PacketInfo("SEND", packetBuffer, true);
     packet->checksum = getChecksum(packetBuffer);
 
-    if (eth_send(&sock->ethSocket, &MAC_BROADCAST, ETHERTYPE_IPv6,
+    if (eth_send(&sock->ethSocket, remote_mac, ETHERTYPE_IPv6,
                  (uint8_t*)packetBuffer, sizeof(packetBuffer)) < 0) {
         logInfo("eth_send failed");
         return -1;
@@ -1097,9 +1128,10 @@ static int icmp6Send(tcpIp6Socket *sock,
 }
 
 static int icmp6SendAdvertise(tcpIp6Socket *sock,
+                              mac_address *remote_mac,
                               const ip6Address localIp,
                               const ip6Address *remoteIp) {
-    return icmp6Send(sock, ICMP6_TYPE_NEIGHBOR_ADVERTISE,
+    return icmp6Send(sock, remote_mac, ICMP6_TYPE_NEIGHBOR_ADVERTISE,
                      remoteIp ? ICMP6_FLAG_SOLICITED : 0,
                      remoteIp ? *remoteIp : IPv6_ALL_LINK_LOCAL,
                      localIp);
@@ -1107,16 +1139,16 @@ static int icmp6SendAdvertise(tcpIp6Socket *sock,
 
 static int icmp6SendSolicit(tcpIp6Socket *sock,
                             const ip6Address target) {
-    return icmp6Send(sock, ICMP6_TYPE_NEIGHBOR_SOLICIT, 0,
+    return icmp6Send(sock, &MAC_BROADCAST, ICMP6_TYPE_NEIGHBOR_SOLICIT, 0,
                      IPv6_ALL_LINK_LOCAL, target);
 }
 
 
 int icmp6Interpret(void *packet,
-                   tcpIp6Socket *sock,
-                   mac_address *source) {
+                   tcpIp6Socket *sock) {
     const ip6PacketHeader *ip6Header = packetGetIp6Header(packet);
     icmp6Packet *icmp = packetGetIcmp6Data(packet);
+    mac_address *source = (mac_address*)icmp->option.data;
 
     switch (icmp->type) {
     case ICMP6_TYPE_NEIGHBOR_SOLICIT:
@@ -1130,12 +1162,10 @@ int icmp6Interpret(void *packet,
                 source->bytes[0], source->bytes[1], source->bytes[2],
                 source->bytes[3], source->bytes[4], source->bytes[5]);
 
-        
         arpAdd(ip6Header->source, *source);
 
-        if (ip6AddressEqual(icmp->body.nbrSolicit.targetAddress,
-                            sock->localAddress)) {
-            if (icmp6SendAdvertise(sock, ip6Header->destination,
+        if (ip6AddressEqual(icmp->targetAddress, sock->localAddress)) {
+            if (icmp6SendAdvertise(sock, source, sock->localAddress,
                                    &ip6Header->source)) {
                 logInfo("icmp6SendAdvertise failed");
                 return -1;
@@ -1149,12 +1179,12 @@ int icmp6Interpret(void *packet,
         }
 
         ip6DebugPrintAddress("got advertisement for ",
-                             icmp->body.nbrAdvertise.targetAddress, false);
+                             icmp->targetAddress, false);
         logInfo("; MAC is to %x:%x:%x:%x:%x:%x",
                 source->bytes[0], source->bytes[1], source->bytes[2],
                 source->bytes[3], source->bytes[4], source->bytes[5]);
 
-        arpAdd(icmp->body.nbrAdvertise.targetAddress, *source);
+        arpAdd(icmp->targetAddress, *source);
         break;
     default:
         logInfo("unknown ICMPv6 packet type: %d", (int)icmp->type);

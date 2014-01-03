@@ -30,7 +30,7 @@ void eth_socket_init(eth_socket* ethsock, const char *interface);
 void bind_fd_to_mac(int sockfd, mac_address* mac, eth_socket* ethsock);
 int eth_send(eth_socket* ethsock, mac_address* dest, uint16_t ethertype,
 		uint8_t* buf, size_t len);
-int eth_recv(eth_socket* ethsock, mac_address* out_source, uint16_t* ethertype,
+int eth_recv(eth_socket* ethsock, uint16_t* ethertype,
         uint8_t* buf, size_t* len);
 
 #endif /* MIKRO_PROJEKT_ETH_NEW_H */

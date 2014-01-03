@@ -30,6 +30,8 @@ int ip6AddressForInterface(const char *interface,
                         (*outAddress)[i] = (ip[2 * i] << 8) | ip[2 * i + 1];
                     }
 
+                    (*outAddress)[7] += 10;
+
                     ip6DebugPrintAddress("found IPv6: ", *outAddress, false);
                     logInfo(" for interface %s", interface);
                     return 0;

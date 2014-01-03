@@ -51,18 +51,17 @@ int eth_send(eth_socket* ethsock, mac_address* dest, uint16_t ethertype,
 	return write(ethsock->raw_socket_fd, &frame, total_len);
 }
 
-int eth_recv(eth_socket* ethsock, mac_address* out_source, uint16_t* ethertype,
+int eth_recv(eth_socket* ethsock, uint16_t* ethertype,
         uint8_t* buf, size_t* len) {
 	eth_frame frame;
 	size_t read_octets;
 	size_t tail_len;
 	uint32_t checksum;
 	read_octets = read(ethsock->raw_socket_fd, &frame, sizeof(frame));
-    memcpy(out_source, &frame.dest_addr, sizeof(mac_address));
 	if(read_octets < 64)
 		return -1;
-	if(!is_addressed_to_me(&ethsock->mac, &frame.dest_addr))
-		return eth_recv(ethsock, out_source, ethertype, buf, len);
+	/*if(!is_addressed_to_me(&ethsock->mac, &frame.dest_addr))*/
+		/*return eth_recv(ethsock, ethertype, buf, len);*/
 	*ethertype = ntohs(frame.ethertype);
 	tail_len = read_octets - 2 * sizeof(mac_address) - sizeof(uint16_t);
 	if(*ethertype > ETH_MAX_PAYLOAD_LEN) {
@@ -73,7 +72,7 @@ int eth_recv(eth_socket* ethsock, mac_address* out_source, uint16_t* ethertype,
 	tail_len -= 4;
 	checksum = crc32buf((char*) &frame, tail_len);
 	if(checksum != *((uint32_t*) (frame.tail + tail_len)))
-		return eth_recv(ethsock, out_source, ethertype, buf, len);
+		return eth_recv(ethsock, ethertype, buf, len);
 	memcpy(buf, frame.tail, tail_len);
 	*len = tail_len;
 	return 0;
