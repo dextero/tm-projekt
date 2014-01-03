@@ -147,10 +147,10 @@ static void printSocket(tcpIp6Socket *sock) {
     case SOCK_STATE_TIME_WAIT:    logInfo("state = TIME_WAIT"); break;
     }
 
-    ip6DebugPrintAddress("local: ", sock->localAddress, false);
+    ip6PrintAddress("local: ", sock->localAddress, false);
     logInfo(":%u", sock->localPort);
 
-    ip6DebugPrintAddress("remote: ", sock->remoteAddress, false);
+    ip6PrintAddress("remote: ", sock->remoteAddress, false);
     logInfo(":%u", sock->remotePort);
 
     logInfo("seq: %u", sock->sequenceNumber);
@@ -235,9 +235,9 @@ static void printIcmp6PacketInfo(const char *header,
                      (icmp->flags & ICMP6_FLAG_ROUTER) ? 'R' : ' ',
                      (icmp->flags & ICMP6_FLAG_SOLICITED) ? 'S' : ' ',
                      (icmp->flags & ICMP6_FLAG_OVERRIDE) ? 'O' : ' ');
-    ip6DebugPrintAddress("", ip6Header->source, isNetworkByteOrder);
-    ip6DebugPrintAddress(" -> ", ip6Header->destination, isNetworkByteOrder);
-    ip6DebugPrintAddress("; target: ", icmp->targetAddress, isNetworkByteOrder);
+    ip6PrintAddress("", ip6Header->source, isNetworkByteOrder);
+    ip6PrintAddress(" -> ", ip6Header->destination, isNetworkByteOrder);
+    ip6PrintAddress("; target: ", icmp->targetAddress, isNetworkByteOrder);
     logInfo(", %luB data", packetSize);
 }
 
@@ -480,8 +480,8 @@ static void addReceivedPacket(tcpIp6Socket *sock,
         uint32_t packetSeqNum = tcpHeader->base.sequenceNumber;
         uint32_t nextSeqNum = getNextPacketSeqNumber(**curr);
 
-        logInfo("last %u, curr %u", seqNumberToAcknowledge, packetSeqNum);
-        logInfo("next = %u", nextSeqNum);
+        /*logInfo("last %u, curr %u", seqNumberToAcknowledge, packetSeqNum);*/
+        /*logInfo("next = %u", nextSeqNum);*/
         if (packetSeqNum == seqNumberToAcknowledge) {
             seqNumberToAcknowledge = nextSeqNum;
         } else if (packetInserted) {
@@ -499,8 +499,8 @@ static void addReceivedPacket(tcpIp6Socket *sock,
         uint32_t packetSeqNum = tcpHeader->base.sequenceNumber;
         uint32_t nextSeqNum = getNextPacketSeqNumber(packet);
 
-        logInfo("2: last %u, curr %u", seqNumberToAcknowledge, packetSeqNum);
-        logInfo("next = %u", nextSeqNum);
+        /*logInfo("2: last %u, curr %u", seqNumberToAcknowledge, packetSeqNum);*/
+        /*logInfo("next = %u", nextSeqNum);*/
         if (packetSeqNum == seqNumberToAcknowledge) {
             seqNumberToAcknowledge = nextSeqNum;
         }
@@ -508,8 +508,8 @@ static void addReceivedPacket(tcpIp6Socket *sock,
         *LIST_APPEND_NEW(packets, void*) = packet;
     }
 
-    logInfo("packet inserted; seq was %u, is %u",
-            sock->stream.nextContiniousSeqNumber, seqNumberToAcknowledge);
+    /*logInfo("packet inserted; seq was %u, is %u",*/
+            /*sock->stream.nextContiniousSeqNumber, seqNumberToAcknowledge);*/
     if (seqNumberToAcknowledge > sock->stream.nextContiniousSeqNumber) {
         sock->stream.nextContiniousSeqNumber = seqNumberToAcknowledge;
 
@@ -783,7 +783,7 @@ static void fillTcpHeader(void *packet,
 
     dataSize = ntohs(ip6Header->dataLength) - tcpGetDataOffset(tcpHeader);
     if (dataSize > 0) {
-        logInfo("dataSize = %u", dataSize);
+        /*logInfo("dataSize = %u", dataSize);*/
         sock->sequenceNumber += dataSize;
     }
 
@@ -1015,23 +1015,23 @@ LIST(ipMacPair) arpTable = NULL;
 ipMacPair *arpFind(const ip6Address ip, mac_address *mac) {
     ipMacPair *pair;
 
-    ip6DebugPrintAddress("searching ARP table for ", ip, false);
-    logInfo("");
+    /*ip6PrintAddress("searching ARP table for ", ip, false);*/
+    /*logInfo("");*/
 
-    logInfo("%lu entries total", LIST_SIZE(arpTable));
+    /*logInfo("%lu entries total", LIST_SIZE(arpTable));*/
 
     LIST_FOREACH(pair, arpTable) {
-        ip6DebugPrintAddress("checking ", pair->ip, false);
-        logInfo("");
+        /*ip6PrintAddress("checking ", pair->ip, false);*/
+        /*logInfo("");*/
 
         if ((!ip || !memcmp(ip, pair->ip, sizeof(ip6Address)))
                 && (!mac || !memcmp(mac, &pair->mac, sizeof(mac_address)))) {
-            logInfo("that's it!");
+            /*logInfo("that's it!");*/
             return pair;
         }
     }
 
-    logInfo("nothing found :(");
+    /*logInfo("nothing found :(");*/
     return NULL;
 }
 
@@ -1039,23 +1039,23 @@ void arpAdd(const ip6Address ip, const mac_address mac) {
     ipMacPair *ipMac = arpFind(ip, NULL);
     
     if (!ipMac) {
-        logInfo("new ARP table entry!");
+        /*logInfo("new ARP table entry!");*/
         ipMac = LIST_NEW_ELEMENT(ipMacPair);
         LIST_APPEND(&arpTable, ipMac);
     } else {
-        ip6DebugPrintAddress("ARP table: updating ", ipMac->ip, false);
-        logInfo(" with MAC %x:%x:%x:%x:%x:%x",
-                ipMac->mac.bytes[0], ipMac->mac.bytes[1], ipMac->mac.bytes[2],
-                ipMac->mac.bytes[3], ipMac->mac.bytes[4], ipMac->mac.bytes[5]);
+        /*ip6PrintAddress("ARP table: updating ", ipMac->ip, false);*/
+        /*logInfo(" with MAC %x:%x:%x:%x:%x:%x",*/
+                /*ipMac->mac.bytes[0], ipMac->mac.bytes[1], ipMac->mac.bytes[2],*/
+                /*ipMac->mac.bytes[3], ipMac->mac.bytes[4], ipMac->mac.bytes[5]);*/
     }
 
     memcpy(ipMac->ip, ip, sizeof(ip6Address));
     memcpy(&ipMac->mac, &mac, sizeof(mac_address));
 
-    ip6DebugPrintAddress("ARP table: adding ", ipMac->ip, false);
-    logInfo(" with MAC %x:%x:%x:%x:%x:%x",
-            ipMac->mac.bytes[0], ipMac->mac.bytes[1], ipMac->mac.bytes[2],
-            ipMac->mac.bytes[3], ipMac->mac.bytes[4], ipMac->mac.bytes[5]);
+    /*ip6PrintAddress("ARP table: adding ", ipMac->ip, false);*/
+    /*logInfo(" with MAC %x:%x:%x:%x:%x:%x",*/
+            /*ipMac->mac.bytes[0], ipMac->mac.bytes[1], ipMac->mac.bytes[2],*/
+            /*ipMac->mac.bytes[3], ipMac->mac.bytes[4], ipMac->mac.bytes[5]);*/
 }
 
 static int icmp6SendSolicit(tcpIp6Socket *sock,
@@ -1067,15 +1067,15 @@ int arpQuery(tcpIp6Socket *sock, const ip6Address ip, mac_address *outMac) {
 
         if (ipMac) {
             memcpy(outMac, &ipMac->mac, sizeof(mac_address));
-            ip6DebugPrintAddress("ARP query", ip, false);
-            logInfo("resolved to %x:%x:%x:%x:%x:%x",
+            ip6PrintAddress("ARP query ", ip, false);
+            logInfo(" resolved to %x:%x:%x:%x:%x:%x",
                     outMac->bytes[0], outMac->bytes[1], outMac->bytes[2],
                     outMac->bytes[3], outMac->bytes[4], outMac->bytes[5]);
             return 0;
         }
 
-        ip6DebugPrintAddress("still waiting for advertisement for ", ip, false);
-        logInfo("");
+        /*ip6PrintAddress("still waiting for advertisement for ", ip, false);*/
+        /*logInfo("");*/
 
         if (icmp6SendSolicit(sock, ip)) {
             logInfo("icmp6SendSolicit() failed");
@@ -1157,10 +1157,10 @@ int icmp6Interpret(void *packet,
             return -1;
         }
 
-        ip6DebugPrintAddress("got solicitation for ", ip6Header->source, false);
-        logInfo("; MAC is to %x:%x:%x:%x:%x:%x",
-                source->bytes[0], source->bytes[1], source->bytes[2],
-                source->bytes[3], source->bytes[4], source->bytes[5]);
+        /*ip6PrintAddress("got solicitation for ", ip6Header->source, false);*/
+        /*logInfo("; MAC is to %x:%x:%x:%x:%x:%x",*/
+                /*source->bytes[0], source->bytes[1], source->bytes[2],*/
+                /*source->bytes[3], source->bytes[4], source->bytes[5]);*/
 
         arpAdd(ip6Header->source, *source);
 
@@ -1178,11 +1178,11 @@ int icmp6Interpret(void *packet,
             return -1;
         }
 
-        ip6DebugPrintAddress("got advertisement for ",
-                             icmp->targetAddress, false);
-        logInfo("; MAC is to %x:%x:%x:%x:%x:%x",
-                source->bytes[0], source->bytes[1], source->bytes[2],
-                source->bytes[3], source->bytes[4], source->bytes[5]);
+        /*ip6PrintAddress("got advertisement for ",*/
+                             /*icmp->targetAddress, false);*/
+        /*logInfo("; MAC is to %x:%x:%x:%x:%x:%x",*/
+                /*source->bytes[0], source->bytes[1], source->bytes[2],*/
+                /*source->bytes[3], source->bytes[4], source->bytes[5]);*/
 
         arpAdd(icmp->targetAddress, *source);
         break;

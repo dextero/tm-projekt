@@ -37,14 +37,13 @@ void ip6SetTrafficClass(ip6PacketHeader *header,
 void ip6SetFlowLabel(ip6PacketHeader *header,
                      uint32_t flowLabel);
 
-#ifdef _DEBUG
-void ip6DebugPrintAddress(const char *label,
-                          const ip6Address addr,
-                          bool isNetworkByteOrder);
+void ip6PrintAddress(const char *label,
+                     const ip6Address addr,
+                     bool isNetworkByteOrder);
 
+#ifdef _DEBUG
 void ip6DebugPrint(const ip6PacketHeader *header);
 #else
-#   define ip6DebugPrintAddress (void)
 #   define ip6DebugPrint (void)
 #endif /* _DEBUG */
 

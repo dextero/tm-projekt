@@ -32,7 +32,7 @@ int ip6AddressForInterface(const char *interface,
 
                     (*outAddress)[7] += 10;
 
-                    ip6DebugPrintAddress("found IPv6: ", *outAddress, false);
+                    ip6PrintAddress("found IPv6: ", *outAddress, false);
                     logInfo(" for interface %s", interface);
                     return 0;
                 }
@@ -79,8 +79,7 @@ void ip6SetFlowLabel(ip6PacketHeader *header,
         | (flowLabel & 0xFFFFF);
 }
 
-#ifdef _DEBUG
-void ip6DebugPrintAddress(const char *label,
+void ip6PrintAddress(const char *label,
                           const ip6Address _addr,
                           bool isNetworkByteOrder) {
     size_t i;
@@ -125,10 +124,11 @@ void ip6DebugPrintAddress(const char *label,
     logInfoNoNewline("]");
 }
 
+#ifdef _DEBUG
 void ip6DebugPrint(const ip6PacketHeader *header) {
 #ifndef LONG_DEBUG
-    ip6DebugPrintAddress("from ", header->source, false);
-    ip6DebugPrintAddress(" to ", header->destination, false);
+    ip6PrintAddress("from ", header->source, false);
+    ip6PrintAddress(" to ", header->destination, false);
     logInfo("");
 #else
 #define FORMAT "%-6u (%x)"
@@ -146,9 +146,9 @@ void ip6DebugPrint(const ip6PacketHeader *header) {
         (uint32_t)header->dataLength,     (uint32_t)header->dataLength,
         (uint32_t)header->nextHeaderType, (uint32_t)header->nextHeaderType,
         (uint32_t)header->hopLimit,       (uint32_t)header->hopLimit);
-    ip6DebugPrintAddress("       source: ", header->source, false);
+    ip6PrintAddress("       source: ", header->source, false);
     logInfo("");
-    ip6DebugPrintAddress("  destination: ", header->destination, false);
+    ip6PrintAddress("  destination: ", header->destination, false);
     logInfo("");
 #undef FORMAT
 #endif /* LONG_DEBUG */

@@ -8,7 +8,6 @@ void **list_last_ptr__(void **list_ptr) {
         last = next;
     }
 
-    logInfo("last = %p", last);
     return last;
 }
 
@@ -37,7 +36,6 @@ size_t list_size__(void *list) {
     void *next;
 
     LIST_FOREACH(next, list) {
-        logInfo("iterating: %p", next);
         ++size;
     }
 
