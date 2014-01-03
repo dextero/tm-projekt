@@ -1,5 +1,6 @@
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "eth_new.h"
 #include "crc.h"
@@ -31,6 +32,7 @@ int eth_send(eth_socket* ethsock, mac_address* dest, uint16_t ethertype,
 	eth_frame frame;
 	size_t total_len;
 	uint32_t checksum;
+	int result;
 	if(len > ETH_MAX_PAYLOAD_LEN) {
         logInfo("eth_send: too much data");
 		return -1;
@@ -48,7 +50,11 @@ int eth_send(eth_socket* ethsock, mac_address* dest, uint16_t ethertype,
 				sizeof(checksum));
 		total_len += sizeof(checksum);
 	/*}*/
-	return write(ethsock->raw_socket_fd, &frame, total_len);
+	result = write(ethsock->raw_socket_fd, &frame, total_len);
+    if (result < 0) {
+        perror("eth_send: write() failed");
+    }
+    return result;
 }
 
 int eth_recv(eth_socket* ethsock, uint16_t* ethertype,
@@ -60,8 +66,10 @@ int eth_recv(eth_socket* ethsock, uint16_t* ethertype,
 	read_octets = read(ethsock->raw_socket_fd, &frame, sizeof(frame));
 	if(read_octets < 64)
 		return -1;
-	/*if(!is_addressed_to_me(&ethsock->mac, &frame.dest_addr))*/
-		/*return eth_recv(ethsock, ethertype, buf, len);*/
+    /* tymczasowo zakomentowane; pakiety ICMPv6 lataja z roznymi dziwnymi
+     * MACami. TODO: poprawic to */
+	/*if(!is_addressed_to_me(&ethsock->mac, &frame.dest_addr))
+		return eth_recv(ethsock, ethertype, buf, len);*/
 	*ethertype = ntohs(frame.ethertype);
 	tail_len = read_octets - 2 * sizeof(mac_address) - sizeof(uint16_t);
 	if(*ethertype > ETH_MAX_PAYLOAD_LEN) {

@@ -813,6 +813,9 @@ static int sendWithFlags(tcpIp6Socket *sock,
                             + sizeof(tcpPacketHeaderBase);
         size_t dataChunkLength = MIN(data_size, MAX_REAL_DATA_PER_FRAME);
 
+        logInfo("sendWithFlags: sending %zu bytes (%zu already sent)",
+                dataChunkLength, dataTransmitted);
+
         memcpy(dataPointer, data, dataChunkLength);
         fillIp6Header(packet, HEADER_TYPE_TCP,
                       sock->localAddress, sock->remoteAddress,
