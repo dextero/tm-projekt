@@ -22,6 +22,7 @@ typedef struct ip6PacketHeader {
 } ip6PacketHeader;
 #pragma pack()
 
+static const ip6Address IPv6_ALL_LINK_LOCAL = { 0xff, 0x02, 0, 0, 0, 0, 0, 1 };
 
 int ip6AddressForInterface(const char *interface,
                            ip6Address *outAddress);

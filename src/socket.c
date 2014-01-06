@@ -5,7 +5,6 @@
 #include "tcp.h"
 #include "generic_list.h"
 
-
 LIST(tcpIp6Socket) allTcpSockets = NULL;
 
 void printSocket(tcpIp6Socket *sock) {
@@ -51,7 +50,9 @@ int socketSend(tcpIp6Socket *sock,
 }
 
 tcpIp6Socket *socketCreate(void) {
-    return LIST_APPEND_NEW(&allTcpSockets, tcpIp6Socket);
+    tcpIp6Socket *sock = LIST_APPEND_NEW(&allTcpSockets, tcpIp6Socket);
+    memcpy(sock->remoteAddress, IPv6_ALL_LINK_LOCAL, sizeof(ip6Address));
+    return sock;
 }
 
 void socketRelease(tcpIp6Socket *sock) {

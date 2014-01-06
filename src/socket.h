@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "eth_new.h"
+#include "eth.h"
 #include "generic_list.h"
 #include "ip6.h"
 

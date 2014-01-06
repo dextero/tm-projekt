@@ -9,7 +9,7 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
-#include "eth_new.h"
+#include "eth.h"
 
 static int create_raw_socket();
 static void set_ifr_name(struct ifreq* ifr, char* if_name);

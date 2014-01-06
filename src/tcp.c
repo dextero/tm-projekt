@@ -10,6 +10,7 @@
 #include "packet.h"
 #include "ndp.h"
 #include "arp.h"
+#include "eth.h"
 
 
 extern LIST(tcpIp6Socket) allTcpSockets;

@@ -5,11 +5,10 @@
 #include <string.h>
 
 #include "ip6.h"
-#include "eth_new.h"
+#include "eth.h"
 #include "packet.h"
 #include "arp.h"
 
-const ip6Address IPv6_ALL_LINK_LOCAL = { 0xff, 0x02, 0, 0, 0, 0, 0, 1 };
 mac_address MAC_BROADCAST = { { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff } };
 
 icmp6Packet *packetGetIcmp6Data(void *packet) {
@@ -111,7 +110,7 @@ static int icmp6SendAdvertise(tcpIp6Socket *sock,
 int icmp6SendSolicit(tcpIp6Socket *sock,
                      const ip6Address target) {
     return icmp6Send(sock, &MAC_BROADCAST, ICMP6_TYPE_NEIGHBOR_SOLICIT, 0,
-                     IPv6_ALL_LINK_LOCAL, target);
+                     sock->remoteAddress, target);
 }
 
 
