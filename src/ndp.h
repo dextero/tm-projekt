@@ -3,8 +3,6 @@
 
 #include "socket.h"
 
-#include <stdint.h>
-
 #pragma pack(1)
 typedef struct icmp6Option {
     uint8_t type;

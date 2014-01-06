@@ -1,8 +1,8 @@
 #ifndef MIKRO_PROJEKT_ETH_NEW_H
 #define MIKRO_PROJEKT_ETH_NEW_H
 
-#include <stddef.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #define ETH_MAX_PAYLOAD_LEN 1500
 #define ETHERTYPE_IPV6 0x86DD

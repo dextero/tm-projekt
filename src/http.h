@@ -1,7 +1,10 @@
 #ifndef MIKRO_PROJEKT_HTTP_H
 #define MIKRO_PROJEKT_HTTP_H
 
-#include "packet.h"
+#include <stddef.h>
+#include <stdint.h>
+
+#include "socket.h"
 
 #define HTTP_INCORRECT_REQUEST 0
 #define HTTP_GET 66

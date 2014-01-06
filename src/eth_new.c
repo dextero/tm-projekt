@@ -1,12 +1,11 @@
-#include <string.h>
-#include <unistd.h>
-#include <stdio.h>
-
 #include "eth_new.h"
-#include "crc.h"
-#include "utils.h"
 #include "raw_socket.h"
 #include "utils.h"
+#include "crc.h"
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 static int is_addressed_to_me(mac_address* my_mac, mac_address* dest_mac);
 

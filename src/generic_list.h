@@ -24,7 +24,6 @@ size_t list_size__(void *list);
 
 #ifdef OMG_MEMORY_CORRUPTION
 
-#include "utils.h"
 
 static void *my_malloc(size_t size) {
     void *ret = malloc(size);

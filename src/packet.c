@@ -1,18 +1,11 @@
 #include "packet.h"
 
-#include <stdlib.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
-#include <assert.h>
-#include <stdio.h>
 
-#include "utils.h"
-#include "eth_new.h"
-#include "generic_list.h"
 #include "ip6.h"
 #include "tcp.h"
-#include "socket.h"
-#include "ndp.h"
-#include "arp.h"
 
 
 ip6PacketHeader *packetGetIp6Header(void *packet) {

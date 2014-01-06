@@ -1,9 +1,13 @@
 #include "ndp.h"
+
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+
 #include "ip6.h"
+#include "eth_new.h"
 #include "packet.h"
 #include "arp.h"
-
-#include <string.h>
 
 const ip6Address IPv6_ALL_LINK_LOCAL = { 0xff, 0x02, 0, 0, 0, 0, 0, 1 };
 mac_address MAC_BROADCAST = { { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff } };

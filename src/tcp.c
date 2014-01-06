@@ -1,15 +1,16 @@
-#include "tcp.h"
-#include "utils.h"
-#include "socket.h"
-#include "packet.h"
-#include "generic_list.h"
-#include "arp.h"
-#include "ndp.h"
-
+#include <stddef.h>
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
+
+#include "generic_list.h"
+#include "socket.h"
+#include "tcp.h"
+#include "ip6.h"
+#include "packet.h"
+#include "ndp.h"
+#include "arp.h"
+
 
 extern LIST(tcpIp6Socket) allTcpSockets;
 

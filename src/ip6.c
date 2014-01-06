@@ -8,7 +8,6 @@
 #include <ifaddrs.h>
 #include <netinet/in.h>
 
-
 int ip6AddressForInterface(const char *interface,
                            ip6Address *outAddress) {
     struct ifaddrs *addr;

@@ -1,11 +1,11 @@
 #ifndef MIKRO_PROJEKT_SOCKET_H
 #define MIKRO_PROJEKT_SOCKET_H
 
-#include <stddef.h>
+#include <stdint.h>
 
-#include "ip6.h"
 #include "eth_new.h"
 #include "generic_list.h"
+#include "ip6.h"
 
 typedef enum tcpSocketState {
     SOCK_STATE_CLOSED,

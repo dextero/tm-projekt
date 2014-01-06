@@ -2,9 +2,9 @@
 
 #include <string.h>
 
-#include "generic_list.h"
-#include "packet.h"
 #include "tcp.h"
+#include "generic_list.h"
+
 
 LIST(tcpIp6Socket) allTcpSockets = NULL;
 

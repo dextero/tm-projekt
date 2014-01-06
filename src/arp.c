@@ -1,12 +1,13 @@
-#include "arp.h"
-
 #include <string.h>
+#include <stdlib.h>
 
 #include "eth_new.h"
-#include "ip6.h"
 #include "generic_list.h"
+#include "ip6.h"
 #include "ndp.h"
-#include "packet.h"
+#include "socket.h"
+#include "tcp.h"
+
 
 typedef struct ipMacPair {
     ip6Address ip;

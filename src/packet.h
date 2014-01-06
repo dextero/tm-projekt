@@ -4,25 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "socket.h"
+#include "ip6.h"
 #include "tcp.h"
-
-#define STREAM_ERROR (-1)
-#define STREAM_WAITING_FOR_PACKET (-2)
-
-int tcpSend(tcpIp6Socket *sock,
-            uint32_t flags,
-            void *data,
-            size_t data_size);
-
-int tcpProcessNextPacket(tcpIp6Socket *sock);
-
-ssize_t tcpStreamReadNextPacket(tcpStream *stream,
-                                void *buffer,
-                                size_t bufferSize);
-int tcpStreamReadNextLine(tcpStream *stream,
-                          char **outLine,
-                          size_t *outSize);
 
 ip6PacketHeader *packetGetIp6Header(void *packet);
 tcpPacketHeader *packetGetTcpHeader(void *packet);

@@ -1,11 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include "http.h"
+
 #include <string.h>
 #include <time.h>
+#include <stdio.h>
 
-#include "http.h"
-#include "packet.h"
-#include "utils.h"
 #include "socket.h"
 
 #define FREE_AND_RETURN(line, i) { free(line); return (i); }

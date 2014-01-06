@@ -3,7 +3,7 @@
 
 #include "utils.h"
 
-#include <stdlib.h>
+#include <stddef.h>
 
 #define ETHERTYPE_IPv6 0x86DD
 #define HEADER_TYPE_TCP 6

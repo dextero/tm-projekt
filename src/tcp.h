@@ -1,8 +1,12 @@
 #ifndef MIKRO_PROJEKT_TCP_H
 #define MIKRO_PROJEKT_TCP_H
 
-#include <stdint.h>
-#include "utils.h"
+#include <stdio.h>
+
+#include "socket.h"
+
+#define STREAM_ERROR (-1)
+#define STREAM_WAITING_FOR_PACKET (-2)
 
 #pragma pack(1)
 typedef struct tcpPacketHeaderBase {
@@ -33,6 +37,7 @@ typedef struct tcpPacketHeader {
 } tcpPacketHeader;
 #pragma pack()
 
+
 uint32_t tcpGetDataOffset(const tcpPacketHeader *header);
 bool tcpGetFlag(const tcpPacketHeader *header, tcpFlags flag);
 
@@ -49,6 +54,21 @@ void tcpDebugPrint(const tcpPacketHeader *header);
 
 void tcpToHostByteOrder(tcpPacketHeader *header);
 void tcpToNetworkByteOrder(tcpPacketHeader *header);
+
+int tcpSend(tcpIp6Socket *sock,
+            uint32_t flags,
+            void *data,
+            size_t data_size);
+
+
+int tcpProcessNextPacket(tcpIp6Socket *sock);
+
+ssize_t tcpStreamReadNextPacket(tcpStream *stream,
+                                void *buffer,
+                                size_t bufferSize);
+int tcpStreamReadNextLine(tcpStream *stream,
+                          char **outLine,
+                          size_t *outSize);
 
 #endif /* MIKRO_PROJEKT_TCP_H */
 

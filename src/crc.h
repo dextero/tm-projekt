@@ -5,8 +5,9 @@
 #ifndef CRC__H
 #define CRC__H
 
-#include <stdlib.h>           /* For size_t                 */
+#include <stddef.h>
 #include <stdint.h>
+
 /* #include "sniptype.h" */         /* For BYTE, WORD, DWORD      */
 
 #define BYTE uint8_t

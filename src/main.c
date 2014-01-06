@@ -1,10 +1,7 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "http.h"
-#include "packet.h"
-#include "utils.h"
 #include "socket.h"
 
 #define RESPONSE_LEADING_HTML \
