@@ -66,10 +66,14 @@ int eth_recv(eth_socket* ethsock, uint16_t* ethertype,
 	read_octets = read(ethsock->raw_socket_fd, &frame, sizeof(frame));
 	if(read_octets < 64)
 		return -1;
+#if 0
     /* tymczasowo zakomentowane; pakiety ICMPv6 lataja z roznymi dziwnymi
      * MACami. TODO: poprawic to */
-	/*if(!is_addressed_to_me(&ethsock->mac, &frame.dest_addr))
-		return eth_recv(ethsock, ethertype, buf, len);*/
+	if(!is_addressed_to_me(&ethsock->mac, &frame.dest_addr))
+		return eth_recv(ethsock, ethertype, buf, len);
+#else
+    (void)is_addressed_to_me(&ethsock->mac, &frame.dest_addr);
+#endif
 	*ethertype = ntohs(frame.ethertype);
 	tail_len = read_octets - 2 * sizeof(mac_address) - sizeof(uint16_t);
 	if(*ethertype > ETH_MAX_PAYLOAD_LEN) {

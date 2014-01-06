@@ -3,6 +3,8 @@
 
 #include "utils.h"
 
+#include <stdlib.h>
+
 #define ETHERTYPE_IPv6 0x86DD
 #define HEADER_TYPE_TCP 6
 #define HEADER_TYPE_ICMPv6 58
@@ -52,5 +54,11 @@ void ip6ToNetworkByteOrder(ip6PacketHeader *header);
 
 bool ip6AddressEqual(const ip6Address first,
                      const ip6Address second);
+
+void ip6FillHeader(void *packet,
+                   uint16_t nextHeaderType,
+                   const ip6Address localAddress,
+                   const ip6Address remoteAddress,
+                   size_t dataLength);
 
 #endif /* MIKRO_PROJEKT_IP6_H */
