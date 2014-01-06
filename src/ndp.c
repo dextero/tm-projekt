@@ -1,6 +1,6 @@
 #include "ndp.h"
 #include "ip6.h"
-#include "tcp_ip6.h"
+#include "packet.h"
 #include "arp.h"
 
 #include <string.h>

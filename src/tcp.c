@@ -1,7 +1,7 @@
 #include "tcp.h"
 #include "utils.h"
 #include "socket.h"
-#include "tcp_ip6.h"
+#include "packet.h"
 #include "generic_list.h"
 #include "arp.h"
 #include "ndp.h"

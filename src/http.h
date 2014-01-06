@@ -1,7 +1,7 @@
 #ifndef MIKRO_PROJEKT_HTTP_H
 #define MIKRO_PROJEKT_HTTP_H
 
-#include "tcp_ip6.h"
+#include "packet.h"
 
 #define HTTP_INCORRECT_REQUEST 0
 #define HTTP_GET 66

@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "generic_list.h"
-#include "tcp_ip6.h"
+#include "packet.h"
 #include "tcp.h"
 
 LIST(tcpIp6Socket) allTcpSockets = NULL;

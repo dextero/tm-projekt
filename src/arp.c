@@ -6,7 +6,7 @@
 #include "ip6.h"
 #include "generic_list.h"
 #include "ndp.h"
-#include "tcp_ip6.h"
+#include "packet.h"
 
 typedef struct ipMacPair {
     ip6Address ip;

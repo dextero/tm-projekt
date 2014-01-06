@@ -1,4 +1,4 @@
-#include "tcp_ip6.h"
+#include "packet.h"
 
 #include <stdlib.h>
 #include <string.h>
