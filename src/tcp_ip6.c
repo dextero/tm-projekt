@@ -769,7 +769,7 @@ static void fillTcpHeader(void *packet,
     tcpHeader->base.sourcePort = sock->localPort;
     tcpHeader->base.destinationPort = sock->remotePort;
     tcpHeader->base.urgentPointer = 0;      /* TODO */
-    tcpHeader->base.windowWidth = 43690;    /* TODO */
+    tcpHeader->base.windowWidth = ETH_MAX_PAYLOAD_LEN;    /* TODO */
     tcpHeader->base.checksum = 0;
     tcpHeader->base.sequenceNumber = sock->sequenceNumber;
     tcpHeader->base.ackNumber = (flags & TCP_FLAG_ACK)
@@ -797,7 +797,8 @@ static int sendWithFlags(tcpIp6Socket *sock,
                          void *data,
                          size_t data_size) {
     const size_t MAX_REAL_DATA_PER_FRAME =
-            ETH_MAX_PAYLOAD_LEN - sizeof(ip6PacketHeader)
+            ETH_MAX_PAYLOAD_LEN - 20 /* ?! */
+                                - sizeof(ip6PacketHeader)
                                 - sizeof(tcpPacketHeaderBase);
     size_t dataTransmitted = 0;
     mac_address remoteMac;
