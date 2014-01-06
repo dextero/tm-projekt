@@ -73,7 +73,7 @@ static void append_new_message(char* request_content) {
   if(request_content == NULL)
     return;
   message = locate_message_in_response_content(request_content);
-  if(message == NULL)
+  if(message == NULL || strlen(message) == 0)
     return;
   new_messages_length = strlen(messages) + strlen(message) + 7;
   messages = realloc(messages, new_messages_length);
@@ -89,6 +89,17 @@ static char* locate_message_in_response_content(char* request_content) {
   if(iterator == NULL)
     return NULL;
   iterator += strlen(CONTENT_DISPOSITION);
+  printf("@@@@@@@@ %d %d %d %d %d\n", iterator[0], iterator[1], iterator[2], iterator[3], iterator[4]);/* skip two newline delimiters */
+  if(iterator[0] == '\r' && iterator[1] == '\n') {
+    iterator += 4;
+  } else if(iterator[0] == '\n') {
+    iterator += 2;
+  } else {
+    return "";
+  }
+  if(iterator[0] == '\r' || iterator[0] == '\n') {
+    return "";
+  }
   message = strtok(iterator, "\n\r");
   return message;
 }
