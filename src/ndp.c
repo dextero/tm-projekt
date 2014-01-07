@@ -115,10 +115,10 @@ int icmp6SendSolicit(tcpIp6Socket *sock,
 
 
 int icmp6Interpret(void *packet,
+                   mac_address *source,
                    tcpIp6Socket *sock) {
     const ip6PacketHeader *ip6Header = packetGetIp6Header(packet);
     icmp6Packet *icmp = packetGetIcmp6Data(packet);
-    mac_address *source = (mac_address*)icmp->option.data;
 
     switch (icmp->type) {
     case ICMP6_TYPE_NEIGHBOR_SOLICIT:

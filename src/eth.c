@@ -56,20 +56,21 @@ int eth_send(eth_socket* ethsock, mac_address* dest, uint16_t ethertype,
     return result;
 }
 
-int eth_recv(eth_socket* ethsock, uint16_t* ethertype,
+int eth_recv(eth_socket* ethsock, uint16_t* ethertype, mac_address *out_source,
         uint8_t* buf, size_t* len) {
 	eth_frame frame;
 	size_t read_octets;
 	size_t tail_len;
 	uint32_t checksum;
 	read_octets = read(ethsock->raw_socket_fd, &frame, sizeof(frame));
+    memcpy(out_source, &frame.src_addr, sizeof(mac_address));
 	if(read_octets < 64)
 		return -1;
 #if 0
     /* tymczasowo zakomentowane; pakiety ICMPv6 lataja z roznymi dziwnymi
      * MACami. TODO: poprawic to */
 	if(!is_addressed_to_me(&ethsock->mac, &frame.dest_addr))
-		return eth_recv(ethsock, ethertype, buf, len);
+		return eth_recv(ethsock, ethertype, out_source, buf, len);
 #else
     (void)is_addressed_to_me(&ethsock->mac, &frame.dest_addr);
 #endif
@@ -83,7 +84,7 @@ int eth_recv(eth_socket* ethsock, uint16_t* ethertype,
 	tail_len -= 4;
 	checksum = crc32buf((char*) &frame, tail_len);
 	if(checksum != *((uint32_t*) (frame.tail + tail_len)))
-		return eth_recv(ethsock, ethertype, buf, len);
+		return eth_recv(ethsock, ethertype, out_source, buf, len);
 	memcpy(buf, frame.tail, tail_len);
 	*len = tail_len;
 	return 0;

@@ -33,6 +33,7 @@ typedef enum icmp6Flags {
 
 
 int icmp6Interpret(void *packet,
+                   mac_address *source,
                    tcpIp6Socket *sock);
 
 void icmp6ToNetworkByteOrder(icmp6Packet *icmp);

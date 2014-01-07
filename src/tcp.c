@@ -340,9 +340,10 @@ static int recvNextPacket(tcpIp6Socket *sock, void **outPacket) {
     while (true) {
         uint16_t ethertype;
         size_t bytesRead;
+        mac_address source;
 
         /* odbierz kolejny pakiet */
-        if (eth_recv(&sock->ethSocket, &ethertype,
+        if (eth_recv(&sock->ethSocket, &ethertype, &source,
                      (uint8_t*)*outPacket, &bytesRead)) {
             logInfo("eth_recv failed");
             continue;
@@ -362,7 +363,7 @@ static int recvNextPacket(tcpIp6Socket *sock, void **outPacket) {
                 icmp6ToHostByteOrder(packetGetIcmp6Data(*outPacket));
                 printIcmp6PacketInfo("RECV", *outPacket, false);
 
-                if (icmp6Interpret(*outPacket, sock)) {
+                if (icmp6Interpret(*outPacket, &source, sock)) {
                     logInfo("icmp6Interpret failed");
                 }
                 break;
