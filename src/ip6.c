@@ -123,37 +123,6 @@ void ip6PrintAddress(const char *label,
     logInfoNoNewline("]");
 }
 
-#ifdef _DEBUG
-void ip6DebugPrint(const ip6PacketHeader *header) {
-#ifndef LONG_DEBUG
-    ip6PrintAddress("from ", header->source, false);
-    ip6PrintAddress(" to ", header->destination, false);
-    logInfo("");
-#else
-#define FORMAT "%-6u (%x)"
-    logInfo(
-        "[IPv6 HEADER]\n"
-        "      version: " FORMAT "\n"
-        "traffic class: " FORMAT "\n"
-        "   flow label: " FORMAT "\n"
-        "  data length: " FORMAT "\n"
-        "  next header: " FORMAT "\n"
-        "    hop limit: " FORMAT,
-        ip6GetVersion(header),            ip6GetVersion(header),
-        ip6GetTrafficClass(header),       ip6GetTrafficClass(header),
-        ip6GetFlowLabel(header),          ip6GetFlowLabel(header),
-        (uint32_t)header->dataLength,     (uint32_t)header->dataLength,
-        (uint32_t)header->nextHeaderType, (uint32_t)header->nextHeaderType,
-        (uint32_t)header->hopLimit,       (uint32_t)header->hopLimit);
-    ip6PrintAddress("       source: ", header->source, false);
-    logInfo("");
-    ip6PrintAddress("  destination: ", header->destination, false);
-    logInfo("");
-#undef FORMAT
-#endif /* LONG_DEBUG */
-}
-#endif /*_DEBUG */
-
 void ip6ToHostByteOrder(ip6PacketHeader *header) {
     size_t i;
 
@@ -166,8 +135,6 @@ void ip6ToHostByteOrder(ip6PacketHeader *header) {
     for (i = 0; i < ARRAY_SIZE(header->destination); ++i) {
         header->destination[i] = ntohs(header->destination[i]);
     }
-
-    /*ip6DebugPrint(header);*/
 }
 
 void ip6ToNetworkByteOrder(ip6PacketHeader *header) {

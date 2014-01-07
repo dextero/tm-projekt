@@ -44,12 +44,6 @@ void ip6PrintAddress(const char *label,
                      const ip6Address addr,
                      bool isNetworkByteOrder);
 
-#ifdef _DEBUG
-void ip6DebugPrint(const ip6PacketHeader *header);
-#else
-#   define ip6DebugPrint (void)
-#endif /* _DEBUG */
-
 void ip6ToHostByteOrder(ip6PacketHeader *header);
 void ip6ToNetworkByteOrder(ip6PacketHeader *header);
 
