@@ -38,6 +38,7 @@ typedef struct tcpIp6Socket {
     uint32_t sequenceNumber;
     uint32_t currPacketDataAlreadyRead;
     uint32_t lastAcknowledgedSeqNumber;
+    uint32_t lastWindowWidthBytes;
     uint32_t lastReceivedAckNumber;
     uint32_t nextUnreadSeqNumber;
     tcpStream stream;

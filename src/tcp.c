@@ -437,16 +437,21 @@ static void addReceivedPacket(tcpIp6Socket *sock,
 
 static void acknowledgePackets(tcpIp6Socket *sock,
                                uint32_t ackNumber) {
-    logInfo("*** resending");
-    if (resendPackets(sock)) {
-        logInfo("resendPackets failed");
-    }
-
     LIST_CLEAR(&sock->unacknowledgedPackets) {
-        if (packetGetTcpHeader(*sock->unacknowledgedPackets)
-                ->base.sequenceNumber >= ackNumber) {
+        tcpPacketHeader *tcpHeader =
+                packetGetTcpHeader(*sock->unacknowledgedPackets);
+        uint32_t seqNum = ntohl(tcpHeader->base.sequenceNumber);
+
+        if (seqNum >= ackNumber) {
             break;
         }
+    }
+
+    sock->lastAcknowledgedSeqNumber = ackNumber;
+
+    logInfo("acknowledged %u, resending", ackNumber);
+    if (resendPackets(sock)) {
+        logInfo("resendPackets failed");
     }
 }
 
@@ -481,6 +486,12 @@ static int processPacket(tcpIp6Socket *sock,
         return 0;
     }
 
+    sock->lastWindowWidthBytes = tcpHeader->base.windowWidth;
+
+    if (tcpGetFlag(tcpHeader, TCP_FLAG_ACK)) {
+        acknowledgePackets(sock, tcpHeader->base.ackNumber);
+    }
+
     switch (sock->state) {
     case SOCK_STATE_SYN_RECEIVED:
         if (tcpGetFlag(tcpHeader, TCP_FLAG_ACK)) {
@@ -495,9 +506,6 @@ static int processPacket(tcpIp6Socket *sock,
                 logInfo("tcpSend failed");
                 return -1;
             }
-        }
-        if (tcpGetFlag(tcpHeader, TCP_FLAG_ACK)) {
-            acknowledgePackets(sock, tcpHeader->base.ackNumber);
         }
         break;
     case SOCK_STATE_LAST_ACK:
@@ -588,15 +596,36 @@ static int scheduleSendPacket(tcpIp6Socket *sock,
 static int resendPackets(tcpIp6Socket *sock) {
     void **packet = NULL;
     mac_address destinationMac;
+    uint32_t maxSeqNumberAllowed;
 
     if (arpQuery(sock, sock->remoteAddress, &destinationMac)) {
         logInfo("arpQuery failed");
         return -1;
     }
 
+    maxSeqNumberAllowed = sock->lastAcknowledgedSeqNumber
+                          + sock->lastWindowWidthBytes;
+
     LIST_FOREACH(packet, sock->unacknowledgedPackets) {
-        size_t bytesToSend = sizeof(ip6PacketHeader)
-                + ntohs(packetGetIp6Header(*packet)->dataLength);
+        uint32_t ipDataSize = ntohs(packetGetIp6Header(*packet)->dataLength);
+        size_t bytesToSend = sizeof(ip6PacketHeader) + ipDataSize;
+        uint32_t seqNum =
+                ntohl(packetGetTcpHeader(*packet)->base.sequenceNumber);
+        uint32_t realDataSize = ipDataSize - sizeof(tcpPacketHeaderBase);
+
+        if (maxSeqNumberAllowed < seqNum + realDataSize) {
+            logInfo("window width exceeded!\n"
+                    "- lastAcknowledgedSeqNumber = %u\n"
+                    "- lastWindowWidthBytes = %u\n"
+                    "- maxSeqNumberAllowed = %u\n"
+                    "- seqNum = %u\n"
+                    "- seqNum + realDataSize = %u\n"
+                    "resend halted",
+                    sock->lastAcknowledgedSeqNumber,
+                    sock->lastWindowWidthBytes,
+                    maxSeqNumberAllowed, seqNum, seqNum + realDataSize);
+            break;
+        }
 
         printPacketInfo("SEND", *packet, false);
 
@@ -606,6 +635,8 @@ static int resendPackets(tcpIp6Socket *sock) {
             return -1;
         }
     }
+
+    logInfo("%lu packets still unacknowledged", LIST_SIZE(sock->unacknowledgedPackets));
 
     return 0;
 }
