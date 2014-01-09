@@ -89,7 +89,7 @@ void packetFillTcpHeader(void *packet,
     tcpHeader->base.sourcePort = sock->localPort;
     tcpHeader->base.destinationPort = sock->remotePort;
     tcpHeader->base.urgentPointer = 0;      /* TODO */
-    tcpHeader->base.windowWidth = ETH_MAX_PAYLOAD_LEN;    /* TODO */
+    tcpHeader->base.windowWidth = 1400;/*ETH_MAX_PAYLOAD_LEN;    /* TODO */
     tcpHeader->base.checksum = 0;
     tcpHeader->base.sequenceNumber = sock->sequenceNumber;
     tcpHeader->base.ackNumber = (flags & TCP_FLAG_ACK)

@@ -15,6 +15,7 @@
 
 extern LIST(tcpIp6Socket) allTcpSockets;
 
+static int resendPackets(tcpIp6Socket *sock);
 
 uint32_t tcpGetDataOffset(const tcpPacketHeader *header) {
     return (uint32_t)(((header->base.flags) & 0xF000) >> 12) * sizeof(uint32_t);
@@ -436,6 +437,11 @@ static void addReceivedPacket(tcpIp6Socket *sock,
 
 static void acknowledgePackets(tcpIp6Socket *sock,
                                uint32_t ackNumber) {
+    logInfo("*** resending");
+    if (resendPackets(sock)) {
+        logInfo("resendPackets failed");
+    }
+
     LIST_CLEAR(&sock->unacknowledgedPackets) {
         if (packetGetTcpHeader(*sock->unacknowledgedPackets)
                 ->base.sequenceNumber >= ackNumber) {
