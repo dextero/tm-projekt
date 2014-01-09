@@ -21,4 +21,6 @@ void packetFillTcpHeader(void *packet,
                          tcpIp6Socket *sock,
                          uint32_t flags);
 
+uint32_t packetGetTcpDataSize(void *packet);
+
 #endif /* MIKRO_PROJEKT_TCP_IP6_H */

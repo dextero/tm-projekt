@@ -53,7 +53,11 @@ uint16_t packetGetChecksum(void *packet) {
         /*logInfo("%04x", val);*/
     }
 
-    checksum = htons(~(uint16_t)((checksum & 0xFFFF) + (checksum >> 16)));
+    while (checksum > 65535) {
+        checksum = (checksum & 0xFFFF) + (checksum >> 16);
+    }
+
+    checksum = htons(~(uint16_t)(checksum));
     /*logInfo("checksum = %04x", checksum);*/
     return checksum;
 }
@@ -113,3 +117,10 @@ void packetFillTcpHeader(void *packet,
     tcpHeader->base.checksum = packetGetChecksum(packet);
 }
 
+uint32_t packetGetTcpDataSize(void *packet) {
+    ip6PacketHeader *ip6Header = packetGetIp6Header(packet);
+    uint32_t ipDataSize = ntohs(ip6Header->dataLength);
+    uint32_t realDataSize = ipDataSize - sizeof(tcpPacketHeaderBase);
+
+    return realDataSize;
+}

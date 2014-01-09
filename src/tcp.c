@@ -58,7 +58,7 @@ static void printPacketInfo(const char *header,
     }
 
     packetSize = sizeof(ip6PacketHeader) + payloadSize;
-    actualDataSize = payloadSize - tcpGetDataOffset(tcpHeader);
+    actualDataSize = packetGetTcpDataSize(packet);
 
     logInfo("%s:  TCP [%c%c%c%c%c%c], seq % 10u, ack % 10u, %luB(%luB) data",
             header,
@@ -331,6 +331,48 @@ int tcpStreamReadNextLine(tcpStream *stream,
     return lineEnd - lineStart;
 }
 
+static int checksumValid(void *packet) {
+    ip6PacketHeader *header = packetGetIp6Header(packet);
+
+    switch (header->nextHeaderType) {
+    case HEADER_TYPE_TCP:
+        {
+            tcpPacketHeader *tcpHeader = packetGetTcpHeader(packet);
+            uint32_t receivedChecksum = tcpHeader->base.checksum;
+            uint32_t calculatedChecksum;
+            bool result;
+
+            tcpHeader->base.checksum = 0;
+            calculatedChecksum = packetGetChecksum(packet);
+            tcpHeader->base.checksum = receivedChecksum;
+
+            result = (receivedChecksum == calculatedChecksum);
+            logInfo("TCP checksum %s (got %x, expected %x)",
+                    result ? "ok" : "invalid",
+                    calculatedChecksum, receivedChecksum);
+            return result;
+        }
+    case HEADER_TYPE_ICMPv6:
+        {
+            icmp6Packet *icmp = packetGetIcmp6Data(packet);
+            uint32_t receivedChecksum = icmp->checksum;
+            uint32_t calculatedChecksum;
+            bool result;
+
+            icmp->checksum = 0;
+            calculatedChecksum = packetGetChecksum(packet);
+            icmp->checksum = receivedChecksum;
+
+            result = (receivedChecksum == calculatedChecksum);
+            logInfo("ICMPv6 checksum %s (got %x, expected %x)",
+                    result ? "ok" : "invalid",
+                    calculatedChecksum, receivedChecksum);
+            return result;
+        }
+    default:
+        return true;
+    }
+}
 
 static int recvNextPacket(tcpIp6Socket *sock, void **outPacket) {
     tcpPacketHeader *tcpHeader;
@@ -347,6 +389,11 @@ static int recvNextPacket(tcpIp6Socket *sock, void **outPacket) {
         if (eth_recv(&sock->ethSocket, &ethertype, &source,
                      (uint8_t*)*outPacket, &bytesRead)) {
             logInfo("eth_recv failed");
+            continue;
+        }
+
+        if (!checksumValid(*outPacket)) {
+            logInfo("dropping packet: invalid checksum");
             continue;
         }
 
@@ -488,6 +535,7 @@ static int processPacket(tcpIp6Socket *sock,
 
     sock->lastWindowWidthBytes = tcpHeader->base.windowWidth;
 
+    /* send ACK only if all packets were processed */
     if (tcpGetFlag(tcpHeader, TCP_FLAG_ACK)) {
         acknowledgePackets(sock, tcpHeader->base.ackNumber);
     }
@@ -607,11 +655,11 @@ static int resendPackets(tcpIp6Socket *sock) {
                           + sock->lastWindowWidthBytes;
 
     LIST_FOREACH(packet, sock->unacknowledgedPackets) {
-        uint32_t ipDataSize = ntohs(packetGetIp6Header(*packet)->dataLength);
-        size_t bytesToSend = sizeof(ip6PacketHeader) + ipDataSize;
+        uint32_t realDataSize = packetGetTcpDataSize(*packet);
+        size_t bytesToSend = realDataSize + sizeof(ip6PacketHeader)
+                             + sizeof(tcpPacketHeaderBase);
         uint32_t seqNum =
                 ntohl(packetGetTcpHeader(*packet)->base.sequenceNumber);
-        uint32_t realDataSize = ipDataSize - sizeof(tcpPacketHeaderBase);
 
         if (maxSeqNumberAllowed < seqNum + realDataSize) {
             logInfo("window width exceeded!\n"
@@ -633,6 +681,13 @@ static int resendPackets(tcpIp6Socket *sock) {
                      (uint8_t*)*packet, bytesToSend) < 0) {
             logInfo("eth_send failed");
             return -1;
+        }
+    }
+
+    if (sock->unacknowledgedPackets) {
+        while (packetGetTcpDataSize(*sock->unacknowledgedPackets) == 0
+                && LIST_NEXT(*sock->unacknowledgedPackets)) {
+            LIST_ERASE(&sock->unacknowledgedPackets);
         }
     }
 
