@@ -30,6 +30,7 @@ static void send_index(tcpIp6Socket* socket);
 static void append_new_message(char* request_content);
 static void send_see_other(tcpIp6Socket* socket);
 static char* locate_message_in_response_content(char* request_content);
+static void send_404(tcpIp6Socket* socket);
 
 void process_request(tcpIp6Socket* socket, http_request* request) {
   if(request == NULL) {
@@ -44,7 +45,9 @@ void process_request(tcpIp6Socket* socket, http_request* request) {
       !strcmp(request->URI, "/")) {
     append_new_message(request->content);
     send_see_other(socket);
-  } 
+    return;
+  }
+  send_404(socket); 
 }
 
 static void send_index(tcpIp6Socket* socket) {
@@ -108,6 +111,15 @@ static void send_see_other(tcpIp6Socket* socket) {
   http_send_response(socket, &response);
   http_print_response(&response);
   http_destroy_response_content(&response);
+}
+
+static void send_404(tcpIp6Socket* socket) {
+  http_response response;
+  http_init_response(&response);
+  response.code = HTTP_CODE_NOT_FOUND;
+  http_send_response(socket, &response);
+  http_print_response(&response);
+  http_destroy_response_content(&response); 
 }
 
 int main(int argc, char **argv) {
