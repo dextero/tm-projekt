@@ -37,6 +37,7 @@ static int retrieve_if_index(int sockfd, struct ifreq* pifr) {
 static int bind_raw_socket(int sockfd, struct ifreq* pifr) {
 	struct sockaddr_ll sll;
 	int retval;
+        memset(&sll, 0, sizeof(struct sockaddr_ll));
 	fill_sockaddr_ll(&sll, pifr);	
 	retval = bind(sockfd, (struct sockaddr*) &sll, sizeof(sll));
 	return retval;
