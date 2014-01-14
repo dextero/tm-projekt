@@ -471,6 +471,11 @@ static void addReceivedPacket(tcpIp6Socket *sock,
         if (newTcpHeader->base.sequenceNumber < packetSeqNum) {
             *LIST_INSERT_NEW(curr, void*) = packet;
             packetInserted = true;
+        } else if(newTcpHeader->base.sequenceNumber == packetSeqNum) {
+            logInfo("REPLACING");
+            free(**curr);
+            **curr = packet;
+            packetInserted = true;
         }
     }
 
@@ -494,8 +499,8 @@ static void addReceivedPacket(tcpIp6Socket *sock,
     logInfo("AFTER");
     printPendingPackets(sock);
 
-    /*logInfo("packet inserted; seq was %u, is %u",*/
-            /*sock->stream.nextContiniousSeqNumber, seqNumberToAcknowledge);*/
+    logInfo("packet inserted; seq was %u, is %u",
+            sock->stream.nextContiniousSeqNumber, seqNumberToAcknowledge);
     if (seqNumberToAcknowledge > sock->stream.nextContiniousSeqNumber) {
         sock->stream.nextContiniousSeqNumber = seqNumberToAcknowledge;
 
@@ -652,9 +657,29 @@ int tcpProcessNextPacket(tcpIp6Socket *sock) {
     return 0;
 }
 
+static bool isAckPacket(void *packet) {
+	return packetGetTcpDataSize(packet) == 0
+            && packetGetTcpHeader(packet)->base.flags == TCP_FLAG_ACK;
+}
+
 static int scheduleSendPacket(tcpIp6Socket *sock,
                               void *packet) {
-    void **elem = LIST_APPEND_NEW(&sock->unacknowledgedPackets, void*);
+    void **elem;
+
+    if (isAckPacket(packet)) {
+        void **curr;
+        LIST_FOREACH(curr, sock->unacknowledgedPackets) {
+            if (isAckPacket(*curr)) {
+                logInfo("replacing ACK");
+                free(*curr);
+                *curr = packet;
+                return 0;
+            }
+        }
+    }
+
+    elem = LIST_APPEND_NEW(&sock->unacknowledgedPackets, void*);
+
     if (!elem) {
         logInfo("LIST_APPEND_NEW failed");
         return -1;
@@ -709,7 +734,7 @@ static int resendPackets(tcpIp6Socket *sock) {
 
     if (sock->unacknowledgedPackets) {
         while (packetGetTcpDataSize(*sock->unacknowledgedPackets) == 0
-                && LIST_NEXT(sock->unacknowledgedPackets)) {
+		        && LIST_NEXT(*sock->unacknowledgedPackets)) {
             LIST_ERASE(&sock->unacknowledgedPackets);
         }
     }
@@ -767,4 +792,5 @@ int tcpSend(tcpIp6Socket *sock,
 
     return 0;
 }
+
 
