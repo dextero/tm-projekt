@@ -149,11 +149,12 @@ int main(int argc, char **argv) {
         
         request = malloc(sizeof(http_request));
         memset(request, 0, sizeof(http_request));
-        http_recv_request(socket, request);
-        http_print_request(request);
-        process_request(socket, request);
-        http_destroy_request_content(request);
-        free(request);
+        if (!http_recv_request(socket, request)) {
+            http_print_request(request);
+            process_request(socket, request);
+            http_destroy_request_content(request);
+            free(request);
+        }
 
         logInfo("response sent!");
 

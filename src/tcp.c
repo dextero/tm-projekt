@@ -350,7 +350,7 @@ static int checksumValid(void *packet) {
             logInfo("TCP checksum %s (got %x, expected %x)",
                     result ? "ok" : "invalid",
                     calculatedChecksum, receivedChecksum);
-            return result;
+            return true;
         }
     case HEADER_TYPE_ICMPv6:
         {
@@ -377,7 +377,7 @@ static int checksumValid(void *packet) {
 static int recvNextPacket(tcpIp6Socket *sock, void **outPacket) {
     tcpPacketHeader *tcpHeader;
     ip6PacketHeader *header;
-    *outPacket = malloc(ETH_MAX_PAYLOAD_LEN);
+    *outPacket = calloc(ETH_MAX_PAYLOAD_LEN, 1);
     header = (ip6PacketHeader*)*outPacket;
 
     while (true) {
@@ -392,14 +392,14 @@ static int recvNextPacket(tcpIp6Socket *sock, void **outPacket) {
             continue;
         }
 
-        if (!checksumValid(*outPacket)) {
-            logInfo("dropping packet: invalid checksum");
-            continue;
-        }
-
-        ip6ToHostByteOrder(header);
-
         if (ethertype == ETHERTYPE_IPv6) {
+            if (!checksumValid(*outPacket)) {
+                logInfo("dropping packet: invalid checksum");
+                continue;
+            }
+
+            ip6ToHostByteOrder(header);
+
             switch (header->nextHeaderType) {
             case HEADER_TYPE_TCP:
                 tcpHeader = (tcpPacketHeader*)((char*)*outPacket + sizeof(*header));
@@ -429,6 +429,18 @@ static int recvNextPacket(tcpIp6Socket *sock, void **outPacket) {
     return -1;
 }
 
+static void printPendingPackets(tcpIp6Socket *sock) {
+    void **curr;
+    
+    logInfo("PACKETS");
+
+    LIST_FOREACH(curr, sock->stream.packets) {
+        tcpPacketHeader *tcpHeader = packetGetTcpHeader(*curr);
+
+        logInfo("- %u", tcpHeader->base.sequenceNumber);
+    }
+}
+
 static void addReceivedPacket(tcpIp6Socket *sock,
                               void *packet) {
     void ***curr;
@@ -438,24 +450,32 @@ static void addReceivedPacket(tcpIp6Socket *sock,
     uint32_t seqNumberToAcknowledge = sock->stream.nextContiniousSeqNumber;
     bool packetInserted = false;
 
+    logInfo("BEFORE");
+    printPendingPackets(sock);
+
     LIST_FOREACH_PTR(curr, packets) {
         tcpPacketHeader *tcpHeader = packetGetTcpHeader(**curr);
         uint32_t packetSeqNum = tcpHeader->base.sequenceNumber;
         uint32_t nextSeqNum = getNextPacketSeqNumber(**curr);
 
+        /*logInfo("--- %p ---", curr);*/
         /*logInfo("last %u, curr %u", seqNumberToAcknowledge, packetSeqNum);*/
         /*logInfo("next = %u", nextSeqNum);*/
+        /*logInfo("new = %u", newTcpHeader->base.sequenceNumber);*/
         if (packetSeqNum == seqNumberToAcknowledge) {
             seqNumberToAcknowledge = nextSeqNum;
         } else if (packetInserted) {
             break;
         }
 
-        if (packetSeqNum < newTcpHeader->base.sequenceNumber) {
+        if (newTcpHeader->base.sequenceNumber < packetSeqNum) {
             *LIST_INSERT_NEW(curr, void*) = packet;
             packetInserted = true;
         }
     }
+
+    logInfo("MIDDLE");
+    printPendingPackets(sock);
 
     if (!packetInserted) {
         tcpPacketHeader *tcpHeader = packetGetTcpHeader(packet);
@@ -470,6 +490,9 @@ static void addReceivedPacket(tcpIp6Socket *sock,
 
         *LIST_APPEND_NEW(packets, void*) = packet;
     }
+
+    logInfo("AFTER");
+    printPendingPackets(sock);
 
     /*logInfo("packet inserted; seq was %u, is %u",*/
             /*sock->stream.nextContiniousSeqNumber, seqNumberToAcknowledge);*/
@@ -686,7 +709,7 @@ static int resendPackets(tcpIp6Socket *sock) {
 
     if (sock->unacknowledgedPackets) {
         while (packetGetTcpDataSize(*sock->unacknowledgedPackets) == 0
-                && LIST_NEXT(*sock->unacknowledgedPackets)) {
+                && LIST_NEXT(sock->unacknowledgedPackets)) {
             LIST_ERASE(&sock->unacknowledgedPackets);
         }
     }

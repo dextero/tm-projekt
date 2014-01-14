@@ -19,6 +19,8 @@
 
 void **list_last_ptr__(void **list_ptr);
 void *list_last__(void *list);
+void **list_end_ptr__(void **list_ptr);
+void *list_insert_new__(void **list_ptr, void *new_elem);
 void list_erase__(void **list_ptr);
 size_t list_size__(void *list);
 
@@ -71,6 +73,9 @@ static void my_free(void *p) {
 #define LIST_LAST(list) \
     ((TYPE(list))(list_last__((void*)list)))
 
+#define LIST_END_PTR(list_ptr) \
+    ((TYPE(*(list_ptr))*)list_end_ptr__((void**)list_ptr))
+
 #define LIST_NEW_BUFFER(size) \
     (((char*)calloc(1, (size) + EXTRA_SPACE)) + EXTRA_SPACE)
 
@@ -82,10 +87,10 @@ static void my_free(void *p) {
      (*(next_pptr) = (elem_ptr)))
 
 #define LIST_INSERT_NEW(next_pptr, type) \
-    (type*)LIST_INSERT((next_pptr), LIST_NEW_ELEMENT(type))
+    (type*)list_insert_new__((void**)(next_pptr), LIST_NEW_ELEMENT(type))
 
 #define LIST_APPEND(list_ptr, elem_ptr) \
-    (*LIST_LAST_PTR(list_ptr) = (elem_ptr))
+    (*LIST_END_PTR(list_ptr) = (elem_ptr))
 
 #define LIST_APPEND_NEW(list_ptr, type) \
     (type*)LIST_APPEND((list_ptr), LIST_NEW_ELEMENT(type))
