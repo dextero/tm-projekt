@@ -4,8 +4,12 @@
 void **list_last_ptr__(void **list_ptr) {
     void **elem_pptr;
 
+    if (!list_ptr) {
+        return NULL;
+    }
+
     LIST_FOREACH_PTR(elem_pptr, list_ptr) {
-        if (!LIST_NEXT_PTR(*elem_pptr)) {
+        if (!LIST_NEXT(*elem_pptr)) {
             return elem_pptr;
         }
     }
@@ -27,6 +31,10 @@ void *list_last__(void *list) {
 
 void **list_end_ptr__(void **list_ptr) {
     void **last_pptr = list_last_ptr__(list_ptr);
+
+    if (!last_pptr) {
+        return NULL;
+    }
 
     if (*last_pptr) {
         return LIST_NEXT_PTR(*last_pptr);

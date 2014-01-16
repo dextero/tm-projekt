@@ -149,12 +149,12 @@ rebuild: clean all
 
 $(TESTS_DIR)/%: $(TESTS_DIR)/%.$(SOURCE_EXT) $(OBJECTS_DEBUG)
 	@echo "dupa"
-	$(CC) $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(DEBUG_MACROS) $(INCLUDES) -o $@ $< $(OBJECTS_TESTS) $(OS_DEPENDANT_LD_OPTIONS) $(LIBS)
+	$(CC) $(OS_DEPENDANT_CC_OPTIONS) -g $(CCFLAGS) $(DEBUG_MACROS) $(INCLUDES) -o $@ $< $(OBJECTS_TESTS) $(OS_DEPENDANT_LD_OPTIONS) $(LIBS)
 
 build_tests: prepare $(TESTS_OUTPUTS)
 
 tests: build_tests
-	for TEST in $(TESTS_OUTPUTS); do ./$${TEST}; done
+	@for TEST in $(TESTS_OUTPUTS); do echo "> running $${TEST}..."; valgrind --leak-check=full ./$${TEST}; done
 
 # kompilacja projektu
 all: debug release tests
