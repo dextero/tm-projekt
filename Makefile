@@ -12,7 +12,7 @@ CC=gcc
 DEBUG_MACROS=-D_DEBUG
 RELEASE_MACROS=
 MACROS=-DHAVE_TYPEOF
-CCFLAGS=-pedantic -Wall -Wextra $(MACROS) -Wno-language-extension-token -Wno-variadic-macros
+CCFLAGS=-pedantic -Wall -Wextra $(MACROS) -Wno-variadic-macros
 LIBDIRS=
 LIBS=
 INCLUDES=-I$(SOURCE_DIR)
@@ -66,7 +66,6 @@ ESCAPED_INTERMEDIATE_DIR_PREPROCESSED=$(shell echo "$(INTERMEDIATE_DIR_PREPROCES
 OBJECTS=$(shell echo "$(SOURCES:.$(SOURCE_EXT)=.$(OBJECT_EXT))" | sed 's/\.\//.\/$(ESCAPED_INTERMEDIATE_DIR)\//g')
 OBJECTS_DEBUG=$(shell echo "$(SOURCES:.$(SOURCE_EXT)=.$(OBJECT_EXT))" | sed 's/\.\//.\/$(ESCAPED_INTERMEDIATE_DIR_DEBUG)\//g')
 OBJECTS_PREPROCESSED=$(shell echo "$(SOURCES)" | sed 's/\.\//.\/$(ESCAPED_INTERMEDIATE_DIR_PREPROCESSED)\//g')
-OBJECTS_TESTS=$(shell echo "$(SOURCES_WITHOUT_MAIN:.$(SOURCE_EXT)=.$(OBJECT_EXT))" | sed 's/\.\//.\/$(ESCAPED_INTERMEDIATE_DIR_DEBUG)\//g')
 
 # podkatalogi do utworzenia w $(INTERMEDIATE_DIR)
 INTERMEDIATE_SUBDIRS=$(shell echo "$(OBJECTS) " | sed 's/\/[^\/]\+\ /\n/g' | sort | uniq)
@@ -147,13 +146,13 @@ preprocess: prepare print_compile_cmd_preprocess $(OBJECTS_PREPROCESSED)
 # rekompilacja calosci
 rebuild: clean all
 
-$(TESTS_DIR)/%: $(TESTS_DIR)/%.$(SOURCE_EXT) $(OBJECTS_DEBUG)
-	@echo "dupa"
-	$(CC) $(OS_DEPENDANT_CC_OPTIONS) -g $(CCFLAGS) $(DEBUG_MACROS) $(INCLUDES) -o $@ $< $(OBJECTS_TESTS) $(OS_DEPENDANT_LD_OPTIONS) $(LIBS)
+$(TESTS_DIR)/%: $(TESTS_DIR)/%.$(SOURCE_EXT)
+	$(CC) $(OS_DEPENDANT_CC_OPTIONS) -g $(CCFLAGS) $(DEBUG_MACROS) $(INCLUDES) -o $@ $< $(OS_DEPENDANT_LD_OPTIONS) $(LIBS)
 
 build_tests: prepare $(TESTS_OUTPUTS)
 
 tests: build_tests
+	@echo ""
 	@for TEST in $(TESTS_OUTPUTS); do echo "> running $${TEST}..."; valgrind --leak-check=full ./$${TEST}; done
 
 # kompilacja projektu
@@ -168,7 +167,6 @@ debug_makefile:
 	@echo "LIBS: $(LIBS)"
 	@echo "OBJECTS: $(OBJECTS)"
 	@echo "OBJECTS_DEBUG: $(OBJECTS_DEBUG)"
-	@echo "OBJECTS_TESTS: $(OBJECTS_TESTS)"
 	@echo "INTERMEDIATE_SUBDIRS: $(INTERMEDIATE_SUBDIRS)"
 	@echo "INTERMEDIATE_SUBDIRS_DEBUG: $(INTERMEDIATE_SUBDIRS_DEBUG)"
 	@echo "INTERMEDIATE_SUBDIRS_PREPROCESSED: $(INTERMEDIATE_SUBDIRS_PREPROCESSED)"

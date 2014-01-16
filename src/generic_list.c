@@ -68,21 +68,3 @@ size_t list_size__(void *list) {
     return size;
 }
 
-void test(void) {
-    LIST(int) list = NULL;
-    int *p, *p2;
-
-    logInfo("%p == %p", &list, LIST_END_PTR(&list));
-
-    p = LIST_APPEND_NEW(&list, int);
-    *p = 100;
-    logInfo("%p == %p", list, p);
-
-    logInfo("%p = %p", LIST_NEXT_PTR(list), LIST_END_PTR(&list));
-
-    logInfo("%p -> %p, %p -> %p", list, LIST_NEXT(list), p, LIST_NEXT(p));
-    p2 = LIST_INSERT_NEW(&list, int);
-    logInfo("%p -> %p, %p -> %p, %p -> %p", list, LIST_NEXT(list), p, LIST_NEXT(p), p2, LIST_NEXT(p2));
-    logInfo("%p == %p", list, p2);
-    logInfo("%p == %p", LIST_NEXT(p2), p);
-}
