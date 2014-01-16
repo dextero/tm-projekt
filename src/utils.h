@@ -8,8 +8,8 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 typedef uint8_t bool;
-static const uint8_t true = 1;
-static const uint8_t false = 0;
+#define true 1
+#define false 0
 
 /* konwertuje liczbe 16bitowa z kolejnosci bajtow sieci na kolejnosc bajtow
  * hosta */

@@ -1,4 +1,5 @@
 #include "generic_list.h"
+#include "utils.h"
 
 void **list_last_ptr__(void **list_ptr) {
     void **elem_pptr;

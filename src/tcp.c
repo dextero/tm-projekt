@@ -658,7 +658,7 @@ int tcpProcessNextPacket(tcpIp6Socket *sock) {
 }
 
 static bool isAckPacket(void *packet) {
-	return packetGetTcpDataSize(packet) == 0
+    return packetGetTcpDataSize(packet) == 0
             && packetGetTcpHeader(packet)->base.flags == TCP_FLAG_ACK;
 }
 
@@ -667,19 +667,17 @@ static int scheduleSendPacket(tcpIp6Socket *sock,
     void **elem;
 
     if (isAckPacket(packet)) {
-        void **curr;
-        LIST_FOREACH(curr, sock->unacknowledgedPackets) {
-            if (isAckPacket(*curr)) {
-                logInfo("replacing ACK");
-                free(*curr);
-                *curr = packet;
+        void ***curr;
+        LIST_FOREACH_PTR(curr, &sock->unacknowledgedPackets) {
+            if (isAckPacket(**curr)) {
+                free(**curr);
+                **curr = packet;
                 return 0;
             }
         }
     }
 
     elem = LIST_APPEND_NEW(&sock->unacknowledgedPackets, void*);
-
     if (!elem) {
         logInfo("LIST_APPEND_NEW failed");
         return -1;
@@ -734,7 +732,7 @@ static int resendPackets(tcpIp6Socket *sock) {
 
     if (sock->unacknowledgedPackets) {
         while (packetGetTcpDataSize(*sock->unacknowledgedPackets) == 0
-		        && LIST_NEXT(*sock->unacknowledgedPackets)) {
+                && LIST_NEXT(*sock->unacknowledgedPackets)) {
             LIST_ERASE(&sock->unacknowledgedPackets);
         }
     }

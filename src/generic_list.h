@@ -5,11 +5,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define EXTRA_SPACE \
-    sizeof(union { \
-        void *voidPtr; \
-        intmax_t intMax; \
-    })
+union extra_space_union__ {
+    void *voidPtr;
+    intmax_t intMax;
+};
+
+#define EXTRA_SPACE sizeof(union extra_space_union__)
 
 #ifdef HAVE_TYPEOF
 #   define TYPE(var) typeof(var)

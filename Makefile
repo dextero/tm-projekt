@@ -4,13 +4,15 @@ SOURCE_DIR=./src
 INTERMEDIATE_DIR=obj/release
 INTERMEDIATE_DIR_DEBUG=obj/debug
 INTERMEDIATE_DIR_PREPROCESSED=obj/preprocessed
+INTERMEDIATE_DIR_TESTS=obj/tests
 OUTPUT_DIR=bin
+TESTS_DIR=tests
 
 CC=gcc
 DEBUG_MACROS=-D_DEBUG
 RELEASE_MACROS=
 MACROS=-DHAVE_TYPEOF
-CCFLAGS=-pedantic -Wall -Wextra $(MACROS) -Wno-language-extension-token
+CCFLAGS=-pedantic -Wall -Wextra $(MACROS) -Wno-language-extension-token -Wno-variadic-macros
 LIBDIRS=
 LIBS=
 INCLUDES=-I$(SOURCE_DIR)
@@ -44,6 +46,8 @@ endif
 OUTPUT=server
 DEBUG_OUTPUT=server_debug
 
+TESTS_OUTPUTS=$(shell find $(TESTS_DIR) -name '*.c' | sed 's/\.c//g')
+
 ###
 # sciezki do plikow wejsciowych/posrednich
 ###
@@ -52,6 +56,7 @@ OBJECT_EXT=o
 
 # przeszukiwanie drzewa podfolderow w poszukiwaniu plikow .c do skompilowania
 SOURCES=$(shell find $(SOURCE_DIR) -name '*.$(SOURCE_EXT)')
+SOURCES_WITHOUT_MAIN=$(shell find $(SOURCE_DIR) -name '*.$(SOURCE_EXT)' | grep -v '.*/main.$(SOURCE_EXT)$$')
 
 # skompilowane pliki obj laduja w osobnym podfolderze $(INTERMEDIATE_DIR)
 ESCAPED_INTERMEDIATE_DIR=$(shell echo "$(INTERMEDIATE_DIR)" | sed 's/\//\\\//g')
@@ -61,7 +66,8 @@ ESCAPED_INTERMEDIATE_DIR_PREPROCESSED=$(shell echo "$(INTERMEDIATE_DIR_PREPROCES
 OBJECTS=$(shell echo "$(SOURCES:.$(SOURCE_EXT)=.$(OBJECT_EXT))" | sed 's/\.\//.\/$(ESCAPED_INTERMEDIATE_DIR)\//g')
 OBJECTS_DEBUG=$(shell echo "$(SOURCES:.$(SOURCE_EXT)=.$(OBJECT_EXT))" | sed 's/\.\//.\/$(ESCAPED_INTERMEDIATE_DIR_DEBUG)\//g')
 OBJECTS_PREPROCESSED=$(shell echo "$(SOURCES)" | sed 's/\.\//.\/$(ESCAPED_INTERMEDIATE_DIR_PREPROCESSED)\//g')
-#
+OBJECTS_TESTS=$(shell echo "$(SOURCES_WITHOUT_MAIN:.$(SOURCE_EXT)=.$(OBJECT_EXT))" | sed 's/\.\//.\/$(ESCAPED_INTERMEDIATE_DIR_DEBUG)\//g')
+
 # podkatalogi do utworzenia w $(INTERMEDIATE_DIR)
 INTERMEDIATE_SUBDIRS=$(shell echo "$(OBJECTS) " | sed 's/\/[^\/]\+\ /\n/g' | sort | uniq)
 INTERMEDIATE_SUBDIRS_DEBUG=$(shell echo "$(OBJECTS_DEBUG) " | sed 's/\/[^\/]\+\ /\n/g' | sort | uniq)
@@ -71,7 +77,7 @@ INTERMEDIATE_SUBDIRS_PREPROCESSED=$(shell echo "$(OBJECTS_PREPROCESSED) " | sed 
 #	reguly
 ###
 # domyslna regula
-default: debug
+default: all
 
 # tworzenie odpowiednich podfolderow
 prepare:
@@ -94,6 +100,8 @@ clean:
 	@rm -rf $(INTERMEDIATE_DIR)
 	@rm -rf $(INTERMEDIATE_DIR_DEBUG)
 	@rm -rf $(INTERMEDIATE_DIR_PREPROCESSED)
+	@echo "> tests"
+	@rm -f $(TESTS_OUTPUTS)
 	@echo "...done!"
 
 
@@ -106,6 +114,9 @@ print_compile_cmd_debug:
 
 print_compile_cmd_preprocess:
 	@echo "$(CC) -E $(CCFLAGS) $(INCLUDES) -o OUTPUT INPUT"
+
+print_compile_cmd_tests:
+	@echo "$(CC) $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(DEBUG_MACROS) $(INCLUDES) -o OUTPUT INPUT $(OBJECTS_DEBUG) $(OS_DEPENDANT_LD_OPTIONS) $(LIBS)"
 
 ###
 #	kompilacja
@@ -136,8 +147,17 @@ preprocess: prepare print_compile_cmd_preprocess $(OBJECTS_PREPROCESSED)
 # rekompilacja calosci
 rebuild: clean all
 
+$(TESTS_DIR)/%: $(TESTS_DIR)/%.$(SOURCE_EXT) $(OBJECTS_DEBUG)
+	@echo "dupa"
+	$(CC) $(OS_DEPENDANT_CC_OPTIONS) $(CCFLAGS) $(DEBUG_MACROS) $(INCLUDES) -o $@ $< $(OBJECTS_TESTS) $(OS_DEPENDANT_LD_OPTIONS) $(LIBS)
+
+build_tests: prepare $(TESTS_OUTPUTS)
+
+tests: build_tests
+	for TEST in $(TESTS_OUTPUTS); do ./$${TEST}; done
+
 # kompilacja projektu
-all: release
+all: debug release tests
 
 ###
 # do debugowania makefile
@@ -148,6 +168,7 @@ debug_makefile:
 	@echo "LIBS: $(LIBS)"
 	@echo "OBJECTS: $(OBJECTS)"
 	@echo "OBJECTS_DEBUG: $(OBJECTS_DEBUG)"
+	@echo "OBJECTS_TESTS: $(OBJECTS_TESTS)"
 	@echo "INTERMEDIATE_SUBDIRS: $(INTERMEDIATE_SUBDIRS)"
 	@echo "INTERMEDIATE_SUBDIRS_DEBUG: $(INTERMEDIATE_SUBDIRS_DEBUG)"
 	@echo "INTERMEDIATE_SUBDIRS_PREPROCESSED: $(INTERMEDIATE_SUBDIRS_PREPROCESSED)"
