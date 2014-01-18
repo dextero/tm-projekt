@@ -12,7 +12,6 @@
 #include "arp.h"
 #include "eth.h"
 
-
 extern LIST(tcpIp6Socket) allTcpSockets;
 
 static int resendPackets(tcpIp6Socket *sock);
@@ -190,21 +189,29 @@ static int streamGetNextPacket(tcpStream *stream)
         unreadDataSize = ip6Header->dataLength - tcpGetDataOffset(tcpHeader)
                          - stream->currPacketDataAlreadyRead;
 
-        if ((seqNum == stream->currPacketSeqNumber && unreadDataSize > 0)
-                || seqNum > stream->currPacketSeqNumber) {
+        if (seqNum > stream->currPacketSeqNumber) {
             break;
+        }
+
+        if (seqNum == stream->currPacketSeqNumber) {
+            if (unreadDataSize > 0) {
+                break;
+            } else {
+                /*logInfo("skip: %u (%s)", seqNum,*/
+                        /*unreadDataSize == 0 ? "no more data"*/
+                                            /*: "sequence number too small");*/
+
+                stream->currPacketSeqNumber =
+                        getNextPacketSeqNumber(*stream->packets);
+                stream->currPacketDataAlreadyRead = 0;
+
+                /*logInfo("currPacketSeqNumber = %u", stream->currPacketSeqNumber);*/
+
+                free(*stream->packets);
+                LIST_ERASE(&stream->packets);
+            }
         } else {
-            logInfo("skip: %u (%s)", seqNum,
-                    unreadDataSize == 0 ? "no more data"
-                                        : "sequence number too small");
-
-            stream->currPacketSeqNumber =
-                    getNextPacketSeqNumber(*stream->packets);
-            stream->currPacketDataAlreadyRead = 0;
-
-            logInfo("currPacketSeqNumber = %u", stream->currPacketSeqNumber);
-
-            free(*stream->packets);
+            /* seqNum < currPacketSeqNumber */
             LIST_ERASE(&stream->packets);
         }
     }
@@ -431,7 +438,7 @@ static int recvNextPacket(tcpIp6Socket *sock, void **outPacket) {
 
 static void printPendingPackets(tcpIp6Socket *sock) {
     void **curr;
-    
+
     logInfo("PACKETS");
 
     LIST_FOREACH(curr, sock->stream.packets) {
@@ -472,10 +479,12 @@ static void addReceivedPacket(tcpIp6Socket *sock,
             *LIST_INSERT_NEW(curr, void*) = packet;
             packetInserted = true;
         } else if(newTcpHeader->base.sequenceNumber == packetSeqNum) {
-            logInfo("REPLACING");
-            free(**curr);
-            **curr = packet;
-            packetInserted = true;
+            if (packetGetTcpDataSize(packet) >= packetGetTcpDataSize(**curr)) {
+                logInfo("REPLACING");
+                free(**curr);
+                **curr = packet;
+                packetInserted = true;
+            }
         }
     }
 
@@ -608,7 +617,7 @@ static int processPacket(tcpIp6Socket *sock,
         break;
     }
 
-    printSocket(sock);
+    /*printSocket(sock);*/
 
     if (savePacket) {
         addReceivedPacket(sock, packet);
@@ -732,12 +741,12 @@ static int resendPackets(tcpIp6Socket *sock) {
 
     if (sock->unacknowledgedPackets) {
         while (packetGetTcpDataSize(*sock->unacknowledgedPackets) == 0
-                && LIST_NEXT(*sock->unacknowledgedPackets)) {
+                && LIST_NEXT(sock->unacknowledgedPackets)) {
             LIST_ERASE(&sock->unacknowledgedPackets);
         }
     }
 
-    logInfo("%lu packets still unacknowledged", LIST_SIZE(sock->unacknowledgedPackets));
+    /*logInfo("%lu packets still unacknowledged", LIST_SIZE(sock->unacknowledgedPackets));*/
 
     return 0;
 }
@@ -764,8 +773,8 @@ int tcpSend(tcpIp6Socket *sock,
                             + sizeof(tcpPacketHeaderBase);
         size_t dataChunkLength = MIN(data_size, MAX_REAL_DATA_PER_FRAME);
 
-        logInfo("tcpSend: sending %zu bytes (%zu already sent)",
-                dataChunkLength, dataTransmitted);
+        /*logInfo("tcpSend: sending %zu bytes (%zu already sent)",*/
+                /*dataChunkLength, dataTransmitted);*/
 
         memcpy(dataPointer, data, dataChunkLength);
         packetFillIp6Header(packet, HEADER_TYPE_TCP,

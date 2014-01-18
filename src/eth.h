@@ -1,5 +1,5 @@
-#ifndef MIKRO_PROJEKT_ETH_NEW_H
-#define MIKRO_PROJEKT_ETH_NEW_H
+#ifndef MIKRO_PROJEKT_ETH_H
+#define MIKRO_PROJEKT_ETH_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -33,4 +33,4 @@ int eth_send(eth_socket* ethsock, mac_address* dest, uint16_t ethertype,
 int eth_recv(eth_socket* ethsock, uint16_t* ethertype, mac_address *out_source,
         uint8_t* buf, size_t* len);
 
-#endif /* MIKRO_PROJEKT_ETH_NEW_H */
+#endif /* MIKRO_PROJEKT_ETH_H */

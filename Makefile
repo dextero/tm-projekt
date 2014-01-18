@@ -13,6 +13,7 @@ DEBUG_MACROS=-D_DEBUG
 RELEASE_MACROS=
 MACROS=-DHAVE_TYPEOF
 CCFLAGS=-pedantic -Wall -Wextra $(MACROS) -Wno-variadic-macros
+TEST_CCFLAGS=-DMOCK
 LIBDIRS=
 LIBS=
 INCLUDES=-I$(SOURCE_DIR)
@@ -147,7 +148,7 @@ preprocess: prepare print_compile_cmd_preprocess $(OBJECTS_PREPROCESSED)
 rebuild: clean all
 
 $(TESTS_DIR)/%: $(TESTS_DIR)/%.$(SOURCE_EXT)
-	$(CC) $(OS_DEPENDANT_CC_OPTIONS) -g $(CCFLAGS) $(DEBUG_MACROS) $(INCLUDES) -o $@ $< $(OS_DEPENDANT_LD_OPTIONS) $(LIBS)
+	$(CC) $(OS_DEPENDANT_CC_OPTIONS) -g $(CCFLAGS) $(TEST_CCFLAGS) $(DEBUG_MACROS) $(INCLUDES) -o $@ $< $(OS_DEPENDANT_LD_OPTIONS) $(LIBS)
 
 build_tests: prepare $(TESTS_OUTPUTS)
 

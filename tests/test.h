@@ -69,8 +69,8 @@ static void runSuite(const char *name, TestCase *tests, size_t numTests) {
         runSuite(STR(name), name, ARRAY_SIZE(name)); \
     }
 
-#define TEST(func) { STR(func), func }
+#define TEST(func) { STR(func), test_ ## func }
 
-#define TEST_CASE(name) static TestResult name(void)
+#define TEST_CASE(name) static TestResult test_ ## name(void)
 
 #endif /* MIKRO_PROJEKT_TEST_H */
